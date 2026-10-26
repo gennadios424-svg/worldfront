@@ -87,18 +87,20 @@ func update_worker(worker: Dictionary, delta: float) -> void:
         return
 
     var target: Vector2 = worker["target"]
-    if target == Vector2.ZERO or pos.distance_to(target) < 25.0:
+    if target == Vector2.ZERO:
         var options: Array[Vector2] = trees if randf() < 0.68 else rocks
         target = options[randi_range(0, options.size() - 1)]
         worker["target"] = target
         worker["kind"] = "wood" if options == trees else "stone"
-    var speed: float = [48.0, 43.0, 65.0, 46.0][int(worker["style"])]
-    worker["pos"] = pos.move_toward(target, speed * delta)
-    worker["stamina"] = maxf(0.0, float(worker["stamina"]) - delta * 2.0)
     if pos.distance_to(target) < 25.0:
         worker["carrying"] = true
         worker["wait"] = 0.8
         worker["stamina"] = maxf(0.0, float(worker["stamina"]) - 5.0)
+        worker["target"] = Vector2.ZERO
+        return
+    var speed: float = [48.0, 43.0, 65.0, 46.0][int(worker["style"])]
+    worker["pos"] = pos.move_toward(target, speed * delta)
+    worker["stamina"] = maxf(0.0, float(worker["stamina"]) - delta * 2.0)
 
 func _draw() -> void:
     draw_rect(Rect2(0, 0, W, H), Color("#26352a"))
