@@ -1,332 +1,193 @@
 extends Node2D
 
-# Worldfront: larger top-down gathering prototype with animated pixel people.
-const MAP_RECT := Rect2(36, 82, 1368, 780)
-const RED := Color("#d94a48")
-const BLUE := Color("#4388e8")
-const LAND := Color("#83b96b")
-const WOOD := Color("#80502e")
-const LEAF := Color("#2f6e3d")
-const STONE := Color("#929b9c")
-const SKIN := Color("#d9a47c")
+# Worldfront - stable, self-contained Godot 4 prototype.
+const W: int = 1440
+const H: int = 900
+const RED: Color = Color("#d94a48")
+const BLUE: Color = Color("#4388e8")
+const FONT: Font = ThemeDB.fallback_font
 
-var capitals := {
-	"red": Vector2(135, 470),
-	"blue": Vector2(1305, 470)
-}
-var stock := {
-	"red": {"wood": 0, "stone": 0},
-	"blue": {"wood": 0, "stone": 0}
-}
-var civilians: Array[Dictionary] = []
-var resources: Array[Dictionary] = []
-var elapsed := 0.0
+var red_wood: int = 0
+var red_stone: int = 0
+var blue_wood: int = 0
+var blue_stone: int = 0
+var elapsed: float = 0.0
+var workers: Array[Dictionary] = []
+var trees: Array[Vector2] = [
+    Vector2(320, 230), Vector2(430, 680), Vector2(550, 360),
+    Vector2(730, 580), Vector2(900, 230), Vector2(1080, 680), Vector2(1170, 350)
+]
+var rocks: Array[Vector2] = [
+    Vector2(285, 630), Vector2(610, 690), Vector2(800, 300), Vector2(1015, 510)
+]
 
 func _ready() -> void:
-	randomize()
-	_make_resources()
-	_make_civilians()
-	queue_redraw()
-
-func _make_resources() -> void:
-	resources = [
-		{"kind": "tree", "pos": Vector2(320, 235), "amount": 100},
-		{"kind": "tree", "pos": Vector2(425, 680), "amount": 100},
-		{"kind": "tree", "pos": Vector2(555, 365), "amount": 100},
-		{"kind": "tree", "pos": Vector2(730, 585), "amount": 100},
-		{"kind": "tree", "pos": Vector2(900, 235), "amount": 100},
-		{"kind": "tree", "pos": Vector2(1080, 680), "amount": 100},
-		{"kind": "tree", "pos": Vector2(1170, 360), "amount": 100},
-		{"kind": "rock", "pos": Vector2(285, 650), "amount": 100},
-		{"kind": "rock", "pos": Vector2(610, 690), "amount": 100},
-		{"kind": "rock", "pos": Vector2(800, 300), "amount": 100},
-		{"kind": "rock", "pos": Vector2(1015, 510), "amount": 100}
-	]
-
-func _make_civilians() -> void:
-	for team in ["red", "blue"]:
-		for i in range(7):
-			var offset := Vector2(randf_range(-35.0, 35.0), randf_range(-65.0, 65.0))
-			civilians.append({
-				"team": team,
-				"pos": capitals[team] + offset,
-				"state": "gather",
-				"target": -1,
-				"carry": "",
-				"wait": randf_range(0.0, 1.2),
-				"wander": Vector2.ZERO,
-				"stamina": randf_range(62.0, 100.0),
-				"style": i % 4,
-				"phase": randf_range(0.0, TAU),
-				"facing": -1 if team == "red" else 1,
-				"load": 0
-			})
+    randomize()
+    for team in ["red", "blue"]:
+        for i in range(7):
+            var home: Vector2 = Vector2(135, 465) if team == "red" else Vector2(1305, 465)
+            workers.append({
+                "team": team,
+                "pos": home + Vector2(randf_range(-25.0, 25.0), randf_range(-45.0, 45.0)),
+                "target": Vector2.ZERO,
+                "carrying": false,
+                "kind": "wood",
+                "wait": randf_range(0.0, 1.5),
+                "phase": randf_range(0.0, TAU),
+                "stamina": randf_range(65.0, 100.0),
+                "style": i % 4,
+                "resting": false
+            })
+    queue_redraw()
 
 func _process(delta: float) -> void:
-	elapsed += delta
-	for person in civilians:
-		_update_civilian(person, delta)
-	queue_redraw()
+    elapsed += delta
+    for worker in workers:
+        update_worker(worker, delta)
+    queue_redraw()
 
-func _update_civilian(person: Dictionary, delta: float) -> void:
-	var team: String = person["team"]
-	var pos: Vector2 = person["pos"]
-	var state: String = person["state"]
+func update_worker(worker: Dictionary, delta: float) -> void:
+    var team: String = str(worker["team"])
+    var pos: Vector2 = worker["pos"]
+    var home: Vector2 = Vector2(135, 465) if team == "red" else Vector2(1305, 465)
+    worker["phase"] = float(worker["phase"]) + delta * 7.0
+    if float(worker["wait"]) > 0.0:
+        worker["wait"] = float(worker["wait"]) - delta
+        if bool(worker["resting"]):
+            worker["stamina"] = minf(100.0, float(worker["stamina"]) + delta * 18.0)
+        if float(worker["wait"]) <= 0.0:
+            worker["resting"] = false
+        return
 
-	if state == "rest":
-		person["stamina"] = minf(100.0, float(person["stamina"]) + delta * 15.0)
-		person["wait"] = float(person["wait"]) - delta
-		if float(person["wait"]) <= 0.0 and float(person["stamina"]) >= 48.0:
-			person["state"] = "gather"
-			person["wait"] = randf_range(0.2, 0.9)
-		return
+    if float(worker["stamina"]) < 12.0 and not bool(worker["resting"]):
+        worker["resting"] = true
+        worker["wait"] = 3.5
+        return
 
-	if state == "return" or float(person["stamina"]) <= 8.0:
-		if float(person["stamina"]) <= 8.0 and state != "return":
-			person["state"] = "rest"
-			person["wait"] = randf_range(2.5, 5.0)
-			return
-		var base: Vector2 = capitals[team]
-		if pos.distance_to(base) < 38.0:
-			if person["carry"] != "":
-				stock[team][person["carry"]] += 1
-			person["carry"] = ""
-			person["load"] = 0
-			person["state"] = "rest" if float(person["stamina"]) < 35.0 else "gather"
-			person["wait"] = randf_range(1.8, 3.6) if float(person["stamina"]) < 35.0 else randf_range(0.4, 1.0)
-			return
-		_move_person(person, base, delta, true)
-		return
+    if bool(worker["carrying"]):
+        if pos.distance_to(home) < 30.0:
+            if str(worker["kind"]) == "wood":
+                if team == "red":
+                    red_wood += 1
+                else:
+                    blue_wood += 1
+            else:
+                if team == "red":
+                    red_stone += 1
+                else:
+                    blue_stone += 1
+            worker["carrying"] = false
+            worker["stamina"] = maxf(0.0, float(worker["stamina"]) - 4.0)
+            worker["wait"] = 0.6
+            return
+        var speed_home: float = 42.0 if str(worker["kind"]) == "stone" else 51.0
+        worker["pos"] = pos.move_toward(home, speed_home * delta)
+        worker["stamina"] = maxf(0.0, float(worker["stamina"]) - delta * 5.0)
+        return
 
-	if float(person["wait"]) > 0.0:
-		person["wait"] = float(person["wait"]) - delta
-		return
-
-	var target_index: int = int(person["target"])
-	if target_index < 0 or target_index >= resources.size() or int(resources[target_index]["amount"]) <= 0:
-		target_index = _choose_resource(pos)
-		person["target"] = target_index
-		if target_index == -1:
-			person["state"] = "rest"
-			person["wait"] = 2.0
-			return
-
-	var target_pos: Vector2 = resources[target_index]["pos"]
-	if pos.distance_to(target_pos) > 27.0:
-		_move_person(person, target_pos, delta, false)
-	else:
-		person["state"] = "gathering"
-		person["wait"] = randf_range(1.0, 1.8)
-		person["stamina"] = maxf(0.0, float(person["stamina"]) - 5.0)
-		var kind: String = resources[target_index]["kind"]
-		resources[target_index]["amount"] = int(resources[target_index]["amount"]) - 1
-		person["carry"] = "wood" if kind == "tree" else "stone"
-		person["load"] = 1 if kind == "tree" else 2
-		person["state"] = "return"
-
-func _move_person(person: Dictionary, target: Vector2, delta: float, carrying: bool) -> void:
-	var pos: Vector2 = person["pos"]
-	var direction := target - pos
-	if absf(direction.x) > 1.0:
-		person["facing"] = 1 if direction.x > 0.0 else -1
-	var style: int = int(person["style"])
-	var speed := [54.0, 47.0, 60.0, 43.0][style]
-	if style == 2 and not carrying and float(person["stamina"]) > 55.0:
-		speed = 75.0 # This villager sometimes breaks into a jog.
-	if carrying:
-		speed *= 0.60 if int(person["load"]) == 2 else 0.72
-		person["stamina"] = maxf(0.0, float(person["stamina"]) - delta * (7.5 if int(person["load"]) == 2 else 5.0))
-	else:
-		person["stamina"] = maxf(0.0, float(person["stamina"]) - delta * 2.4)
-	person["pos"] = pos.move_toward(target, speed * delta)
-	person["phase"] = float(person["phase"]) + delta * (speed / 5.5)
-
-func _choose_resource(from: Vector2) -> int:
-	var best_index := -1
-	var best_distance := INF
-	for i in range(resources.size()):
-		if int(resources[i]["amount"]) <= 0:
-			continue
-		var distance: float = from.distance_to(resources[i]["pos"])
-		if distance < best_distance:
-			best_distance = distance
-			best_index = i
-	return best_index
+    var target: Vector2 = worker["target"]
+    if target == Vector2.ZERO or pos.distance_to(target) < 25.0:
+        var options: Array[Vector2] = trees if randf() < 0.68 else rocks
+        target = options[randi_range(0, options.size() - 1)]
+        worker["target"] = target
+        worker["kind"] = "wood" if options == trees else "stone"
+    var speed: float = [48.0, 43.0, 65.0, 46.0][int(worker["style"])]
+    worker["pos"] = pos.move_toward(target, speed * delta)
+    worker["stamina"] = maxf(0.0, float(worker["stamina"]) - delta * 2.0)
+    if pos.distance_to(target) < 25.0:
+        worker["carrying"] = true
+        worker["wait"] = 0.8
+        worker["stamina"] = maxf(0.0, float(worker["stamina"]) - 5.0)
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, Vector2(1440, 900)), Color("#26352a"))
-	draw_rect(MAP_RECT, Color("#789f5d"))
-	_draw_terrain()
-	_draw_paths()
-	draw_rect(MAP_RECT, Color("#d0c9a9"), false, 4.0)
-	_draw_top_bar()
-	_draw_resources()
-	_draw_capital("red")
-	_draw_capital("blue")
-	_draw_civilians()
+    draw_rect(Rect2(0, 0, W, H), Color("#26352a"))
+    draw_rect(Rect2(36, 78, 1368, 786), Color("#789f5d"))
+    draw_terrain()
+    draw_paths()
+    draw_rect(Rect2(36, 78, 1368, 786), Color("#d0c9a9"), false, 4.0)
+    draw_rect(Rect2(0, 0, W, 62), Color("#18231c"))
+    draw_string(FONT, Vector2(22, 28), "WORLDFRONT", HORIZONTAL_ALIGNMENT_LEFT, -1, 23, Color.WHITE)
+    draw_string(FONT, Vector2(22, 49), "EARLY SETTLEMENTS  /  GATHER • CARRY • REST", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#c4d4c6"))
+    draw_string(FONT, Vector2(470, 31), "RED   Wood: %d   Stone: %d" % [red_wood, red_stone], HORIZONTAL_ALIGNMENT_LEFT, -1, 17, RED)
+    draw_string(FONT, Vector2(900, 31), "BLUE   Wood: %d   Stone: %d" % [blue_wood, blue_stone], HORIZONTAL_ALIGNMENT_LEFT, -1, 17, BLUE)
+    draw_resources()
+    draw_capital(Vector2(135, 465), RED, "RED CAPITAL")
+    draw_capital(Vector2(1305, 465), BLUE, "BLUE CAPITAL")
+    draw_workers()
 
-func _draw_terrain() -> void:
-	# Uneven grassland patches, scattered tufts, flowers, and darker scrub.
-	for i in range(105):
-		var x := 55.0 + float((i * 173 + 41) % 1325)
-		var y := 100.0 + float((i * 97 + 19) % 735)
-		var radius := 12.0 + float((i * 7) % 27)
-		var patch := Color("#91c477") if i % 3 == 0 else Color("#638f50")
-		draw_circle(Vector2(x, y), radius, Color(patch, 0.20))
-	for i in range(210):
-		var x := 48.0 + float((i * 67 + 23) % 1340)
-		var y := 92.0 + float((i * 131 + 11) % 755)
-		var tuft_color := Color("#426c3d") if i % 2 == 0 else Color("#b1cb79")
-		draw_line(Vector2(x, y), Vector2(x + 2, y - 4 - float(i % 4)), tuft_color, 1.4)
-		if i % 11 == 0:
-			draw_circle(Vector2(x + 5, y - 2), 2.0, Color("#e7d98b"))
+func draw_terrain() -> void:
+    for i in range(100):
+        var x: float = 52.0 + float((i * 173 + 41) % 1330)
+        var y: float = 95.0 + float((i * 97 + 19) % 745)
+        var c: Color = Color("#91c477") if i % 2 == 0 else Color("#638f50")
+        draw_circle(Vector2(x, y), 10.0 + float(i % 20), Color(c.r, c.g, c.b, 0.28))
+    for i in range(190):
+        var x: float = 48.0 + float((i * 67 + 23) % 1340)
+        var y: float = 90.0 + float((i * 131 + 11) % 755)
+        draw_line(Vector2(x, y), Vector2(x + 2.0, y - 4.0 - float(i % 4)), Color("#426c3d"), 1.4)
+        if i % 13 == 0:
+            draw_circle(Vector2(x + 5.0, y - 2.0), 2.0, Color("#e7d98b"))
 
-func _draw_paths() -> void:
-	# Worn earth tracks radiate from both settlements.
-	for team in ["red", "blue"]:
-		var base: Vector2 = capitals[team]
-		var paths := PackedVector2Array([base + Vector2(0, 25), Vector2(base.x, base.y + 75), Vector2(720, base.y + 95)])
-		draw_polyline(paths, Color("#987a50"), 19.0, true)
-		draw_polyline(paths, Color("#b59a6d"), 11.0, true)
-	# A shallow winding stream gives the map a recognisable natural feature.
-	var stream := PackedVector2Array([
-		Vector2(690, 90), Vector2(665, 180), Vector2(700, 260),
-		Vector2(670, 345), Vector2(705, 430), Vector2(680, 520),
-		Vector2(720, 620), Vector2(700, 780), Vector2(735, 855)
-	])
-	draw_polyline(stream, Color("#4e886e"), 25.0, true)
-	draw_polyline(stream, Color("#6ba8a0"), 15.0, true)
-	draw_polyline(stream, Color("#a5d0b3"), 2.0, true)
+func draw_paths() -> void:
+    var left_path: PackedVector2Array = PackedVector2Array([Vector2(135, 490), Vector2(160, 560), Vector2(370, 570), Vector2(720, 590)])
+    var right_path: PackedVector2Array = PackedVector2Array([Vector2(1305, 490), Vector2(1270, 560), Vector2(1050, 570), Vector2(720, 590)])
+    draw_polyline(left_path, Color("#987a50"), 18.0, true)
+    draw_polyline(left_path, Color("#b59a6d"), 10.0, true)
+    draw_polyline(right_path, Color("#987a50"), 18.0, true)
+    draw_polyline(right_path, Color("#b59a6d"), 10.0, true)
+    var stream: PackedVector2Array = PackedVector2Array([
+        Vector2(690, 90), Vector2(665, 180), Vector2(700, 260), Vector2(670, 345),
+        Vector2(705, 430), Vector2(680, 520), Vector2(720, 620), Vector2(700, 780), Vector2(735, 855)
+    ])
+    draw_polyline(stream, Color("#4e886e"), 24.0, true)
+    draw_polyline(stream, Color("#6ba8a0"), 14.0, true)
 
-func _draw_top_bar() -> void:
-	draw_rect(Rect2(0, 0, 1440, 66), Color("#18231c"))
-	draw_string(ThemeDB.fallback_font, Vector2(22, 27), "WORLDFRONT", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color.WHITE)
-	draw_string(ThemeDB.fallback_font, Vector2(22, 49), "EARLY SETTLEMENTS  /  GATHER • CARRY • REST", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#c4d4c6"))
-	draw_string(ThemeDB.fallback_font, Vector2(480, 28), "RED  |  Wood: %d   Stone: %d" % [stock["red"]["wood"], stock["red"]["stone"]], HORIZONTAL_ALIGNMENT_LEFT, -1, 17, RED)
-	draw_string(ThemeDB.fallback_font, Vector2(900, 28), "BLUE  |  Wood: %d   Stone: %d" % [stock["blue"]["wood"], stock["blue"]["stone"]], HORIZONTAL_ALIGNMENT_LEFT, -1, 17, BLUE)
+func draw_resources() -> void:
+    for tree in trees:
+        draw_rect(Rect2(tree + Vector2(-5, 2), Vector2(10, 25)), Color("#68452c"))
+        draw_colored_polygon(PackedVector2Array([tree + Vector2(0, -40), tree + Vector2(-24, -5), tree + Vector2(24, -5)]), Color("#28583a"))
+        draw_colored_polygon(PackedVector2Array([tree + Vector2(0, -25), tree + Vector2(-29, 10), tree + Vector2(29, 10)]), Color("#347247"))
+        draw_colored_polygon(PackedVector2Array([tree + Vector2(0, -12), tree + Vector2(-31, 18), tree + Vector2(31, 18)]), Color("#3e824b"))
+    for rock in rocks:
+        var points: PackedVector2Array = PackedVector2Array([
+            rock + Vector2(-22, 10), rock + Vector2(-18, -8), rock + Vector2(-4, -19),
+            rock + Vector2(13, -14), rock + Vector2(24, 0), rock + Vector2(18, 14), rock + Vector2(-4, 18)
+        ])
+        draw_colored_polygon(points, Color("#6f7b7c"))
+        draw_colored_polygon(PackedVector2Array([rock + Vector2(-13, -4), rock + Vector2(-4, -14), rock + Vector2(8, -10), rock + Vector2(0, -1)]), Color("#aab4ad"))
 
-func _draw_capital(team: String) -> void:
-	var pos: Vector2 = capitals[team]
-	var color: Color = RED if team == "red" else BLUE
-	draw_circle(pos + Vector2(0, 7), 52.0, Color(0, 0, 0, 0.20))
-	draw_circle(pos, 48.0, Color("#e6d9b8"))
-	draw_circle(pos, 40.0, color.darkened(0.22))
-	draw_rect(Rect2(pos + Vector2(-19, -18), Vector2(38, 34)), Color("#eee1c1"))
-	draw_rect(Rect2(pos + Vector2(-12, -10), Vector2(24, 26)), color.darkened(0.18))
-	draw_colored_polygon(PackedVector2Array([pos + Vector2(-29, -14), pos + Vector2(0, -39), pos + Vector2(29, -14)]), Color("#eee1c1"))
-	draw_rect(Rect2(pos + Vector2(-4, 4), Vector2(8, 12)), color.darkened(0.28))
-	draw_string(ThemeDB.fallback_font, pos + Vector2(-48, 67), team.to_upper() + " CAPITAL", HORIZONTAL_ALIGNMENT_CENTER, 96, 13, color)
+func draw_capital(pos: Vector2, color: Color, label: String) -> void:
+    draw_circle(pos + Vector2(0, 7), 52.0, Color(0.0, 0.0, 0.0, 0.2))
+    draw_circle(pos, 48.0, Color("#e6d9b8"))
+    draw_circle(pos, 40.0, color.darkened(0.22))
+    draw_rect(Rect2(pos + Vector2(-19, -18), Vector2(38, 34)), Color("#eee1c1"))
+    draw_rect(Rect2(pos + Vector2(-12, -10), Vector2(24, 26)), color.darkened(0.18))
+    draw_colored_polygon(PackedVector2Array([pos + Vector2(-29, -14), pos + Vector2(0, -39), pos + Vector2(29, -14)]), Color("#eee1c1"))
+    draw_string(FONT, pos + Vector2(-48, 67), label, HORIZONTAL_ALIGNMENT_CENTER, 96, 13, color)
 
-func _draw_resources() -> void:
-	for resource in resources:
-		var pos: Vector2 = resource["pos"]
-		if resource["kind"] == "tree":
-			# Pixel-ish pine with layered blocky foliage.
-			draw_rect(Rect2(pos + Vector2(-6, 3), Vector2(12, 27)), Color("#68452c"))
-			draw_rect(Rect2(pos + Vector2(-3, 6), Vector2(5, 22)), Color("#8d633d"))
-			draw_colored_polygon(PackedVector2Array([pos + Vector2(0, -42), pos + Vector2(-25, -7), pos + Vector2(25, -7)]), Color("#28583a"))
-			draw_colored_polygon(PackedVector2Array([pos + Vector2(0, -28), pos + Vector2(-31, 7), pos + Vector2(31, 7)]), Color("#347247"))
-			draw_colored_polygon(PackedVector2Array([pos + Vector2(0, -14), pos + Vector2(-34, 18), pos + Vector2(34, 18)]), Color("#3e824b"))
-			draw_rect(Rect2(pos + Vector2(-5, -20), Vector2(5, 20)), Color("#5b9650"))
-		else:
-			var points := PackedVector2Array([
-				pos + Vector2(-23, 11), pos + Vector2(-19, -8), pos + Vector2(-5, -20),
-				pos + Vector2(12, -16), pos + Vector2(25, 0), pos + Vector2(19, 15), pos + Vector2(-3, 20)
-			])
-			draw_colored_polygon(points, Color("#6f7b7c"))
-			draw_colored_polygon(PackedVector2Array([pos + Vector2(-14, -5), pos + Vector2(-4, -16), pos + Vector2(8, -12), pos + Vector2(0, -2)]), Color("#aab4ad"))
-			draw_line(pos + Vector2(-19, 10), pos + Vector2(17, 10), Color("#566466"), 2.0)
-		if int(resource["amount"]) <= 0:
-			draw_circle(pos, 24, Color(0, 0, 0, 0.18))
-
-func _pixel(pos: Vector2, x: float, y: float, w: float, h: float, color: Color) -> void:
-	draw_rect(Rect2(pos + Vector2(x, y), Vector2(w, h)), color)
-
-func _draw_civilians() -> void:
-	for person in civilians:
-		var pos: Vector2 = person["pos"]
-		var team_color: Color = RED if person["team"] == "red" else BLUE
-		var state: String = person["state"]
-		var phase: float = float(person["phase"])
-		var style: int = int(person["style"])
-		var face: float = float(person["facing"])
-		var moving := state == "return" or state == "gather" or state == "wander"
-		var carrying: bool = person["carry"] != ""
-		var tired := float(person["stamina"]) < 30.0
-		var bob := 0.0
-		var leg_a := 0.0
-		var leg_b := 0.0
-		var arm_a := 0.0
-		var arm_b := 0.0
-		if moving:
-			match style:
-				0: # long, steady stride
-					leg_a = roundf(sin(phase) * 5.0)
-					leg_b = roundf(sin(phase + PI) * 5.0)
-					arm_a = -leg_a * 0.65
-					arm_b = -leg_b * 0.65
-				1: # short shuffling steps
-					leg_a = roundf(sin(phase * 1.5) * 2.0)
-					leg_b = roundf(sin(phase * 1.5 + PI) * 2.0)
-					arm_a = roundf(sin(phase * 1.5) * 2.0)
-					arm_b = -arm_a
-				2: # bouncy jog
-					bob = absf(sin(phase)) * 3.0
-					leg_a = roundf(sin(phase) * 6.0)
-					leg_b = roundf(sin(phase + PI) * 6.0)
-					arm_a = -leg_a
-					arm_b = -leg_b
-				_: # relaxed uneven gait
-					leg_a = roundf(sin(phase * 0.8) * 4.0)
-					leg_b = roundf(sin(phase * 0.8 + PI) * 3.0)
-					arm_a = roundf(sin(phase * 0.8 + PI) * 2.0)
-					arm_b = roundf(sin(phase * 0.8) * 3.0)
-		var lean := 2.0 if carrying else 0.0
-		if tired and moving:
-			lean += 2.0
-		if state == "rest":
-			# Sit on the ground with bent legs.
-			_pixel(pos, -8, 5, 8, 5, Color("#332d2b"))
-			_pixel(pos, 1, 5, 8, 5, Color("#332d2b"))
-			_pixel(pos, -8, -3, 16, 11, team_color.darkened(0.12))
-			_pixel(pos, -5, -13, 10, 10, SKIN)
-			_pixel(pos, -7, -16, 14, 5, Color("#4a3025"))
-			_pixel(pos, -3, -10, 2, 2, Color("#302c2b"))
-			_pixel(pos, 3, -10, 2, 2, Color("#302c2b"))
-			if tired:
-				_pixel(pos, 9, -18, 3, 3, Color("#bde8f5"))
-		else:
-			# Shadow and pixel-art legs.
-			_pixel(pos, -10, 10 + bob, 20, 4, Color(0, 0, 0, 0.18))
-			var leg_color := Color("#3d3b3a")
-			_pixel(pos, -7 + leg_a, 5 + bob, 6, 10, leg_color)
-			_pixel(pos, -7 + leg_a, 13 + bob, 8, 3, Color("#282b2b"))
-			_pixel(pos, 1 + leg_b, 5 + bob, 6, 10, leg_color)
-			_pixel(pos, 1 + leg_b, 13 + bob, 8, 3, Color("#282b2b"))
-			# Arms: carrying villagers hold their load close and lean forward.
-			_pixel(pos, -10 - lean, -5 + bob + arm_a * 0.35, 5, 12, SKIN)
-			_pixel(pos, 5 - lean, -5 + bob + arm_b * 0.35, 5, 12, SKIN)
-			_pixel(pos, -9 - lean, -7 + bob, 18, 15, team_color.darkened(0.10))
-			_pixel(pos, -6 - lean, -5 + bob, 4, 9, team_color.lightened(0.16))
-			# Different hair/skin details make the workers less identical.
-			var skin := SKIN if style != 3 else Color("#a96f4e")
-			_pixel(pos, -6 - lean, -19 + bob, 12, 12, skin)
-			var hair := Color("#493326") if style != 2 else Color("#6c4930")
-			_pixel(pos, -7 - lean, -22 + bob, 14, 5, hair)
-			_pixel(pos, -7 - lean, -18 + bob, 3, 4, hair)
-			_pixel(pos, -3 - lean, -15 + bob, 2, 2, Color("#302b27"))
-			_pixel(pos, 3 - lean, -15 + bob, 2, 2, Color("#302b27"))
-			# Tiny belt and tunic trim.
-			_pixel(pos, -8 - lean, 3 + bob, 16, 2, Color("#d3b87a"))
-			if carrying:
-				var bundle_color := Color("#9a693e") if person["carry"] == "wood" else Color("#9ca7a6")
-				_pixel(pos, 4 - lean, -10 + bob, 10, 9, bundle_color)
-				_pixel(pos, 5 - lean, -12 + bob, 7, 2, bundle_color.lightened(0.2))
-				if int(person["load"]) == 2:
-					_pixel(pos, 13 - lean, -6 + bob, 3, 3, Color("#bde8f5"))
-			elif tired:
-				_pixel(pos, 10, -21 + bob, 3, 3, Color("#bde8f5"))
-		# Small stamina bar only appears when a worker is worn out.
-		if float(person["stamina"]) < 35.0:
-			draw_rect(Rect2(pos + Vector2(-10, -31), Vector2(20, 3)), Color("#3b3b35"))
-			draw_rect(Rect2(pos + Vector2(-10, -31), Vector2(20.0 * float(person["stamina"]) / 100.0, 3)), Color("#e5c45f"))
+func draw_workers() -> void:
+    for worker in workers:
+        var pos: Vector2 = worker["pos"]
+        var color: Color = RED if str(worker["team"]) == "red" else BLUE
+        var phase: float = float(worker["phase"])
+        var step: float = sin(phase * (1.0 + float(worker["style"]) * 0.12)) * 4.0
+        var tired: bool = float(worker["stamina"]) < 30.0
+        draw_rect(Rect2(pos + Vector2(-9, 10), Vector2(18, 4)), Color(0.0, 0.0, 0.0, 0.2))
+        if bool(worker["resting"]):
+            draw_rect(Rect2(pos + Vector2(-10, 4), Vector2(20, 7)), color.darkened(0.15))
+            draw_rect(Rect2(pos + Vector2(-6, -9), Vector2(12, 12)), Color("#d9a47c"))
+            draw_rect(Rect2(pos + Vector2(-7, -12), Vector2(14, 5)), Color("#493326"))
+        else:
+            draw_rect(Rect2(pos + Vector2(-7 + step, 5), Vector2(6, 10)), Color("#3d3b3a"))
+            draw_rect(Rect2(pos + Vector2(1 - step, 5), Vector2(6, 10)), Color("#3d3b3a"))
+            draw_rect(Rect2(pos + Vector2(-9, -7), Vector2(18, 15)), color.darkened(0.1))
+            draw_rect(Rect2(pos + Vector2(-6, -19), Vector2(12, 12)), Color("#d9a47c") if int(worker["style"]) != 3 else Color("#a96f4e"))
+            draw_rect(Rect2(pos + Vector2(-7, -22), Vector2(14, 5)), Color("#493326"))
+            draw_rect(Rect2(pos + Vector2(-4, -15), Vector2(2, 2)), Color("#302b27"))
+            draw_rect(Rect2(pos + Vector2(3, -15), Vector2(2, 2)), Color("#302b27"))
+            if bool(worker["carrying"]):
+                var bundle: Color = Color("#9a693e") if str(worker["kind"]) == "wood" else Color("#9ca7a6")
+                draw_rect(Rect2(pos + Vector2(5, -9), Vector2(10, 9)), bundle)
+        if tired:
+            draw_rect(Rect2(pos + Vector2(-10, -30), Vector2(20, 3)), Color("#3b3b35"))
+            draw_rect(Rect2(pos + Vector2(-10, -30), Vector2(20.0 * float(worker["stamina"]) / 100.0, 3)), Color("#e5c45f"))
