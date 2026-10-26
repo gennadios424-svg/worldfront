@@ -5,7 +5,7 @@ const W: int = 1440
 const H: int = 900
 const RED: Color = Color("#d94a48")
 const BLUE: Color = Color("#4388e8")
-const FONT: Font = ThemeDB.fallback_font
+var font: Font
 
 var red_wood: int = 0
 var red_stone: int = 0
@@ -22,6 +22,7 @@ var rocks: Array[Vector2] = [
 ]
 
 func _ready() -> void:
+    font = ThemeDB.fallback_font
     randomize()
     for team in ["red", "blue"]:
         for i in range(7):
@@ -106,10 +107,10 @@ func _draw() -> void:
     draw_paths()
     draw_rect(Rect2(36, 78, 1368, 786), Color("#d0c9a9"), false, 4.0)
     draw_rect(Rect2(0, 0, W, 62), Color("#18231c"))
-    draw_string(FONT, Vector2(22, 28), "WORLDFRONT", HORIZONTAL_ALIGNMENT_LEFT, -1, 23, Color.WHITE)
-    draw_string(FONT, Vector2(22, 49), "EARLY SETTLEMENTS  /  GATHER • CARRY • REST", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#c4d4c6"))
-    draw_string(FONT, Vector2(470, 31), "RED   Wood: %d   Stone: %d" % [red_wood, red_stone], HORIZONTAL_ALIGNMENT_LEFT, -1, 17, RED)
-    draw_string(FONT, Vector2(900, 31), "BLUE   Wood: %d   Stone: %d" % [blue_wood, blue_stone], HORIZONTAL_ALIGNMENT_LEFT, -1, 17, BLUE)
+    draw_string(font, Vector2(22, 28), "WORLDFRONT", HORIZONTAL_ALIGNMENT_LEFT, -1, 23, Color.WHITE)
+    draw_string(font, Vector2(22, 49), "EARLY SETTLEMENTS  /  GATHER • CARRY • REST", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#c4d4c6"))
+    draw_string(font, Vector2(470, 31), "RED   Wood: %d   Stone: %d" % [red_wood, red_stone], HORIZONTAL_ALIGNMENT_LEFT, -1, 17, RED)
+    draw_string(font, Vector2(900, 31), "BLUE   Wood: %d   Stone: %d" % [blue_wood, blue_stone], HORIZONTAL_ALIGNMENT_LEFT, -1, 17, BLUE)
     draw_resources()
     draw_capital(Vector2(135, 465), RED, "RED CAPITAL")
     draw_capital(Vector2(1305, 465), BLUE, "BLUE CAPITAL")
@@ -163,7 +164,7 @@ func draw_capital(pos: Vector2, color: Color, label: String) -> void:
     draw_rect(Rect2(pos + Vector2(-19, -18), Vector2(38, 34)), Color("#eee1c1"))
     draw_rect(Rect2(pos + Vector2(-12, -10), Vector2(24, 26)), color.darkened(0.18))
     draw_colored_polygon(PackedVector2Array([pos + Vector2(-29, -14), pos + Vector2(0, -39), pos + Vector2(29, -14)]), Color("#eee1c1"))
-    draw_string(FONT, pos + Vector2(-48, 67), label, HORIZONTAL_ALIGNMENT_CENTER, 96, 13, color)
+    draw_string(font, pos + Vector2(-48, 67), label, HORIZONTAL_ALIGNMENT_CENTER, 96, 13, color)
 
 func draw_workers() -> void:
     for worker in workers:
