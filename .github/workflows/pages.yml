@@ -35,10 +35,6 @@ jobs:
           NODE
           node --check /tmp/worldfront-inline.js
           test -s index.html
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
