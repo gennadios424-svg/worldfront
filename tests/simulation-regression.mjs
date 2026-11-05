@@ -9,7 +9,7 @@ assert(open>=0&&close>open,'index.html inline simulation script not found');
 let source=html.slice(open+8,close);
 const boot='init();resize();requestAnimationFrame(frame);';
 assert(source.includes(boot),'simulation boot sequence changed; update the test harness explicitly');
-source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,constructionRate,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution,updateWorldLife,makeRivers,riverPaths,nearRiver};');
+source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,constructionRate,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution,updateWorldLife,makeRivers,riverPaths,nearRiver,findGroundRoute,riverBlocked,requestBridge,updateBridges,makeFishingSpots,nearestFishingSpot};');
 
 let seed=424242;
 const seededMath={};
@@ -145,3 +145,48 @@ sim.updateMilitary(recruitTeam,1);const trainee=recruitTeam.civilians.find(v=>v.
 const limitedTeam={...buildTeam,buildings:buildTeam.buildings.slice(),civilians:buildTeam.civilians.map(v=>({...v,inventory:{wood:0,stone:0,food:0}}))};limitedTeam.buildings.push({id:999,type:'farm',progress:0,materialsRequired:{wood:10,stone:5},materialsReady:false,workers:[]});assert.equal(sim.createBuilding(limitedTeam,'house'),false,'AI started simultaneous construction beyond its project capacity');
 assert(report.every(r=>r.storageHouses<=2),'a country exceeded the storage cap during the multi-year simulation');
 assert(report.every(r=>sim.teams.find(t=>t.name===r.nation)?.expansionAI),'a country did not run its own territorial expansion evaluation');
+
+ 
+// Natural navigation, impassable rivers, bridge access, fishing and military/civilian balance.
+const savedRivers=sim.riverPaths.slice();
+sim.riverPaths.splice(0,sim.riverPaths.length,{x:1000,y:1000},{x:2000,y:1000});
+const riverFixture={buildings:[],nodes:[],bridges:[],resources:{wood:40,stone:20,food:0},civilians:[],capital:{x:1500,y:900},settlements:[]};
+assert.equal(sim.riverBlocked(riverFixture,1500,1000),true,'river did not block ordinary movement');
+riverFixture.bridges=[{id:1,progress:.5,bankA:{x:1500,y:970},bankB:{x:1500,y:1030}}];
+assert.equal(sim.riverBlocked(riverFixture,1500,1000),true,'unfinished bridge incorrectly allowed river crossing');
+riverFixture.bridges[0].progress=1;
+assert.equal(sim.riverBlocked(riverFixture,1500,1000),false,'completed bridge did not enable river crossing');
+riverFixture.bridges=[];
+const riverRoute=sim.findGroundRoute(riverFixture,1500,900,1500,1100);
+assert(riverRoute&&riverRoute.length>1,'pathfinder could not find a safe route around an uncrossable river');
+assert(riverRoute.every(p=>!sim.riverBlocked(riverFixture,p.x,p.y)),'pathfinder routed a unit through a river');
+const bridgeWorkers=[0,1].map(i=>({id:700+i,x:1490+i*20,y:950,stage:'adult',role:'civilian',task:'wander',inventory:{wood:0,stone:0,food:0}}));
+riverFixture.civilians=bridgeWorkers;
+const constructed=sim.requestBridge(riverFixture,1500,900,1500,1100);
+assert(constructed,'government did not start a bridge when resources and builders were available');
+bridgeWorkers.forEach(v=>{v.x=v.bridgeSide?constructed.bankB.x:constructed.bankA.x;v.y=v.bridgeSide?constructed.bankB.y:constructed.bankA.y});
+sim.updateBridges(riverFixture,1000);
+assert.equal(constructed.progress,1,'bridge did not progress to completion with builders at both banks');
+assert.equal(sim.riverBlocked(riverFixture,1500,1000),false,'completed constructed bridge did not unlock crossing');
+const fishSpots=sim.makeFishingSpots();
+assert(fishSpots.length>0,'rivers did not produce any suitable fishing banks');
+const fishSpot=fishSpots.find(p=>p.stock>4);
+assert(fishSpot,'no fishing ground had a finite fish stock');
+const fisherman={id:801,x:fishSpot.x,y:fishSpot.y,tx:fishSpot.x,ty:fishSpot.y,stage:'adult',role:'fisherman',task:'fish',speed:20,speedFactor:1,efficiency:1,inventory:{wood:0,stone:0,food:0},needs:{rest:.1,social:.1},fishingSpot:fishSpot,decision:999};
+const fishTeam={capital:{x:fishSpot.x,y:fishSpot.y},resources:{wood:0,stone:0,food:0},settlements:[],buildings:[{id:1,type:'storage',x:fishSpot.x+40,y:fishSpot.y,progress:1,radius:17,inventory:{wood:0,stone:0,food:0},capacity:500}],civilians:[fisherman],nodes:[],bridges:[],fishingSpots:[fishSpot],territory:Array.from({length:48},(_,i)=>({x:fishSpot.x+Math.cos(i/48*Math.PI*2)*400,y:fishSpot.y+Math.sin(i/48*Math.PI*2)*400}))};
+for(let i=0;i<13;i++)sim.moveCivilian(fishTeam,fisherman,1,new Map());
+assert(fisherman.inventory.food>=4||fishTeam.resources.food>0,'fisherman did not catch fish for the food economy');
+const footPerson={id:901,x:1500,y:900,tx:1500,ty:900,stage:'adult',role:'civilian',task:'wander',homeId:null,needs:{rest:.2,social:.2}};
+const footTeam={civilians:[footPerson],buildings:[],trainingGrounds:[],footpaths:[],speechBubbles:[],fishingSpots:[],bridges:[],capital:{x:1500,y:900},resources:{wood:0,stone:0,food:0},settlements:[],territory:[]};
+sim.updateWorldLife(footTeam,.1);
+for(let i=0;i<8;i++){footPerson.x=i%2?1500:1520;footPerson.y=900;sim.updateWorldLife(footTeam,.1)}
+assert(footTeam.footpaths.some(p=>p.wear>.12&&p.traffic>=4),'repeated pedestrian traffic did not develop a visible path');
+const collisionPerson={id:902,x:1500,y:900,tx:1500,ty:900,stage:'adult',role:'civilian',task:'wander',homeId:null,needs:{rest:.2,social:.2}};
+const collisionTeam={civilians:[collisionPerson],buildings:[{x:1510,y:900,radius:24}],trainingGrounds:[],footpaths:[],speechBubbles:[],fishingSpots:[],bridges:[],capital:{x:1500,y:900},resources:{wood:0,stone:0,food:0},settlements:[],territory:[]};
+sim.updateWorldLife(collisionTeam,.1);collisionPerson.x=1520;sim.updateWorldLife(collisionTeam,.1);
+assert.equal(collisionTeam.footpaths.length,0,'foot traffic drew a path through a building footprint');
+const ratioTeam={capital:{x:1500,y:900},resources:{food:0,wood:0,stone:0},settlements:[],buildings:[],diplomacy:{wars:[]},military:{morale:80,lastRecruit:999,casualties:0},civilians:Array.from({length:6},(_,i)=>({id:950+i,x:1500+i,y:900,tx:1500+i,ty:900,stage:'adult',role:i<4?'soldier':'civilian',task:'guard',health:100,energy:80,inventory:{wood:0,stone:0,food:0},needs:{rest:.1,social:.1}}))};
+sim.updateMilitary(ratioTeam,10);
+assert(ratioTeam.military.populationRatio>1,'military-to-civilian ratio was not calculated');
+assert(ratioTeam.military.morale<80&&ratioTeam.workforceModifier<1,'excessive military population did not damage morale and civilian productivity');
+sim.riverPaths.splice(0,sim.riverPaths.length,...savedRivers);
