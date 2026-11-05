@@ -9,7 +9,7 @@ assert(open>=0&&close>open,'index.html inline simulation script not found');
 let source=html.slice(open+8,close);
 const boot='init();resize();requestAnimationFrame(frame);';
 assert(source.includes(boot),'simulation boot sequence changed; update the test harness explicitly');
-source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,constructionRate,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution};');
+source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,constructionRate,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution,updateWorldLife,makeRivers,riverPaths,nearRiver};');
 
 let seed=424242;
 const seededMath={};
@@ -46,6 +46,22 @@ const report=sim.teams.map(t=>{
 });
 console.log(JSON.stringify({seed:424242,simSeconds:sim.sim,year:sim.year,nations:report},null,2));
 assert(sim.year>=14,'simulation did not reach Year 14');
+assert(sim.teams.every(t=>t.kingId!==undefined&&t.civilians.filter(v=>v.role==='king').length===1),'each nation must retain exactly one living king');
+assert(sim.riverPaths.length>=1&&sim.riverPaths.every(r=>r.length>8),'natural rivers were not generated as connected paths');
+assert(sim.teams.every(t=>Array.isArray(t.footpaths)),'pedestrian footfall tracking was not initialized');
+assert(sim.teams.some(t=>(t.trainingGrounds||[]).length>0),'no nation established a strategic border training ground');
+const frozen={capital:{x:0,y:0},buildings:[],civilians:[]};
+const sleeper={id:991,x:25,y:30,tx:250,ty:260,stage:'adult',task:'rest',restingAt:true,restingAtLocal:true};
+sim.moveCivilian(frozen,sleeper,1,new Map());
+assert.equal(sleeper.x,25,'sleeping civilian moved horizontally');
+assert.equal(sleeper.y,30,'sleeping civilian moved vertically');
+const homelessFixture={civilians:[{id:1,x:100,y:100,tx:100,ty:100,stage:'adult',role:'civilian',task:'wander',homeId:null,needs:{rest:.2,social:.2}}],buildings:[],trainingGrounds:[],footpaths:[],speechBubbles:[]};
+sim.updateWorldLife(homelessFixture,.5);
+assert.equal(homelessFixture.homelessCount,1,'civilian without a house was not classified as homeless');
+const conversationFixture={civilians:[{id:1,x:100,y:100,tx:100,ty:100,stage:'adult',role:'civilian',task:'wander',homeId:null,needs:{}},{id:2,x:110,y:100,tx:110,ty:100,stage:'adult',role:'civilian',task:'wander',homeId:null,needs:{}}],buildings:[],trainingGrounds:[],footpaths:[],speechBubbles:[],lifeClock:18};
+for(let i=0;i<20;i++){conversationFixture.lifeClock=18;sim.updateWorldLife(conversationFixture,.1)}
+assert(conversationFixture.speechBubbles.length>0,'nearby civilians never generated a conversation bubble');
+assert(source.includes('function playWorldSound')&&source.includes('audioVolumes')&&source.includes('StereoPannerNode')===false,'positional audio controls or sound event system are missing');
 assert(report.some(r=>r.settlements>0),'no nation founded a settlement by Year 14');
 assert(report.some(r=>r.farms>0&&r.houses>0),'no nation completed both farms and houses by Year 14');
 assert(report.some(r=>r.roads>0),'settlement roads were not constructed');
