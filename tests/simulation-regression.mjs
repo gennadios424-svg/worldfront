@@ -168,6 +168,11 @@ bridgeWorkers.forEach(v=>{v.x=v.bridgeSide?constructed.bankB.x:constructed.bankA
 sim.updateBridges(riverFixture,1000);
 assert.equal(constructed.progress,1,'bridge did not progress to completion with builders at both banks');
 assert.equal(sim.riverBlocked(riverFixture,1500,1000),false,'completed constructed bridge did not unlock crossing');
+const horseSource={id:61,type:'storage',x:1500,y:900,radius:17,progress:1,inventory:{wood:100,stone:0,food:0}},horseDestination={id:62,type:'storage',x:1500,y:1100,radius:17,progress:1,inventory:{wood:0,stone:0,food:0}};
+const tradingHorse={x:1500,y:863,storageId:61,state:'outbound',speed:58,cargo:{type:'wood',amount:10},from:horseSource,to:horseDestination,heading:Math.PI/2,capacity:42};
+const horseTeam={horses:[tradingHorse],buildings:[horseSource,horseDestination],resources:{wood:0,stone:0,food:0},civilians:[],settlements:[],bridges:[]};
+for(let i=0;i<45;i++){sim.updateHorses(horseTeam,1);assert.equal(sim.riverBlocked(horseTeam,tradingHorse.x,tradingHorse.y),false,'trading horse crossed an unbridged river');}
+assert.equal(horseDestination.inventory.wood,10,'horse did not deliver cargo along a safe route');
 const fishSpots=sim.makeFishingSpots();
 assert(fishSpots.length>0,'rivers did not produce any suitable fishing banks');
 const fishSpot=fishSpots.find(p=>p.stock>4);
