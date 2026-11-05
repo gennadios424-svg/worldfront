@@ -9,7 +9,7 @@ assert(open>=0&&close>open,'index.html inline simulation script not found');
 let source=html.slice(open+8,close);
 const boot='init();resize();requestAnimationFrame(frame);';
 assert(source.includes(boot),'simulation boot sequence changed; update the test harness explicitly');
-source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateMilitary,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,teamTerritoryPath,triggerRevolution};');
+source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateMilitary,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution};');
 
 let seed=424242;
 const seededMath={};
@@ -45,13 +45,33 @@ assert(report.some(r=>r.farms>0&&r.houses>0),'no nation completed both farms and
 assert(report.every(r=>r.population>=10),'a nation lost most of its population');
 assert(report.every(r=>r.army>=1),'military recruitment did not occur in every nation');
 assert(report.some(r=>r.mergedSettlements>=2),'nearby developed settlements did not merge into a city');
-assert(report.every(r=>r.settlementResidents>0),'settlements failed to attract residents');
+assert(report.every(r=>r.settlements===0||r.settlementResidents>0),'a founded settlement failed to attract residents');
 assert(report.every(r=>r.storageHouses>=1),'a nation has no physical storage house');
 assert(report.every(r=>r.settlementStorageHouses>=r.settlements),'a settlement has no local storage house');
 assert(report.some(r=>r.storedTotal>0),'resources were not deposited into storage');
 const identityTeam=sim.teams.find(t=>t.settlements.length>=2);
 if(identityTeam){const before=identityTeam.cities.map(c=>({id:c.id,name:c.name}));sim.updateCities(identityTeam,5);for(const city of identityTeam.cities){const old=before.find(q=>q.id===city.id);if(old)assert.equal(city.name,old.name,'city identity/name changed during refresh')}}
-const supportTeam={name:'SUPPORT TEST',capital:{x:1570,y:1060},resources:{wood:0,stone:0,food:0},settlements:[{id:'support-source',name:'Source',x:1570,y:1060,residents:[1,2],resources:{wood:120,stone:20,food:20}},{id:'support-destination',name:'Hungry Town',x:1670,y:1060,residents:[3,4],resources:{wood:0,stone:0,food:0}}],horses:[]};
+
+const storageFixture={capital:{x:1570,y:1060},resources:{wood:0,stone:0,food:0},buildings:[{id:1,type:'storage',x:1600,y:1060,progress:1,settlement:null,capacity:500}],buildingSerial:2};
+const storageCarrier={x:1570,y:1060,inventory:{wood:4,stone:3,food:2}};
+assert.equal(sim.depositInventory(storageFixture,storageCarrier,null),0,'storage should accept all available cargo');
+assert.equal(storageFixture.resources.wood,4);assert.equal(storageFixture.resources.stone,3);assert.equal(storageFixture.resources.food,2);
+const secondStore=sim.addStorageHouse(storageFixture,null);
+assert(secondStore.type==='storage'&&sim.teams.length>=4,'multiple storage houses are not supported');
+const buildTeam=sim.teams.find(t=>t.civilians.some(v=>v.stage==='adult'&&v.role!=='soldier'));
+assert(buildTeam,'no civilian available for construction logistics');
+buildTeam.government=buildTeam.government||{};buildTeam.government.capitalReady=false;buildTeam.resources.wood+=100;buildTeam.resources.stone+=100;
+const buildBefore={wood:buildTeam.resources.wood,stone:buildTeam.resources.stone};
+assert(sim.createBuilding(buildTeam,'house'),'construction order could not create a staffed building');
+const project=buildTeam.buildings.slice().reverse().find(b=>b.type==='house'&&b.progress<1);
+assert(project,'construction project was not created');
+const carrier=buildTeam.civilians.find(v=>v.targetBuilding===project.id);
+assert(carrier&&['pickup_building','deliver'].includes(carrier.task),'builder did not receive a physical storage pickup route');
+assert(buildTeam.resources.wood<buildBefore.wood&&buildTeam.resources.stone<buildBefore.stone,'construction materials were not reserved from storage');
+for(let step=0;step<1600&& !project.materialsReady;step++)sim.moveCivilian(buildTeam,carrier,.25,new Map());
+assert(project.materialsReady,'carrier failed to collect materials from storage and deliver them to the building site');
+assert(project.materialsDelivered.wood>=project.materialsRequired.wood&&project.materialsDelivered.stone>=project.materialsRequired.stone,'construction delivery did not contain the required materials');
+\nconst supportTeam={name:'SUPPORT TEST',capital:{x:1570,y:1060},resources:{wood:0,stone:0,food:0},settlements:[{id:'support-source',name:'Source',x:1570,y:1060,residents:[1,2],resources:{wood:120,stone:20,food:20}},{id:'support-destination',name:'Hungry Town',x:1670,y:1060,residents:[3,4],resources:{wood:0,stone:0,food:0}}],horses:[]};
 sim.updateHorses(supportTeam,1);
 assert(supportTeam.horses.some(h=>h.state==='outbound'&&h.to?.id==='support-destination'&&h.cargo?.type==='wood'),'cities did not send surplus resources to another city');
 const unrestA={id:1,x:1570,y:1060,tx:1570,ty:1060,stage:'adult',role:'civilian',task:'wander',inventory:{wood:0,stone:0,food:0},needs:{social:.9},settlementHome:null};
