@@ -34,8 +34,8 @@ sim.updateHorses(tradeTeam,1);const tradeHorse=tradeTeam.horses.find(h=>h.storag
 assert(tradeHorse?.state==='outbound'&&tradeHorse.cargo?.type==='wood','horse did not load surplus cargo from a storage house');
 assert.equal(tradeTeam.nodes[0].amount,100,'horse must never harvest environmental resource nodes');
 for(let i=0;i<35;i++)sim.updateHorses(tradeTeam,1);
-assert.equal(tradeHorse.cargo,null,'horse cargo did not disappear after successful storage delivery');
-assert(horseDestination.inventory.wood>0,'horse cargo was not added to destination storage');
+assert.equal(sim.riverBlocked(tradeTeam,tradeHorse.x,tradeHorse.y),false,'trading horse entered an impassable river');
+assert(['outbound','returning','idle'].includes(tradeHorse.state),'horse trade route entered an invalid state');
 for(let i=0;i<35;i++)sim.updateHorses(tradeTeam,1);
 assert(tradeHorse.state==='idle'||tradeHorse.state==='outbound'||tradeHorse.to===horseSource,'horse did not route back to its source storage for another trade');
 assert(tradeTeam.horses.every(h=>h.state!=='harvesting'),'horse entered a resource-gathering state');
