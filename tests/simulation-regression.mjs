@@ -61,7 +61,7 @@ assert.equal(homelessFixture.homelessCount,1,'civilian without a house was not c
 const conversationFixture={civilians:[{id:1,x:100,y:100,tx:100,ty:100,stage:'adult',role:'civilian',task:'wander',homeId:null,needs:{}},{id:2,x:110,y:100,tx:110,ty:100,stage:'adult',role:'civilian',task:'wander',homeId:null,needs:{}}],buildings:[],trainingGrounds:[],footpaths:[],speechBubbles:[],lifeClock:18};
 for(let i=0;i<20;i++){conversationFixture.lifeClock=18;sim.updateWorldLife(conversationFixture,.1)}
 assert(conversationFixture.speechBubbles.length>0,'nearby civilians never generated a conversation bubble');
-assert(source.includes('function playWorldSound')&&source.includes('audioVolumes')&&source.includes('StereoPannerNode')===false,'positional audio controls or sound event system are missing');
+assert(source.includes('function playWorldSound')&&source.includes('audioVolumes')&&source.includes('createStereoPanner'),'positional audio controls or sound event system are missing');
 assert(report.some(r=>r.settlements>0),'no nation founded a settlement by Year 14');
 assert(report.some(r=>r.farms>0&&r.houses>0),'no nation completed both farms and houses by Year 14');
 assert(report.some(r=>r.roads>0),'settlement roads were not constructed');
