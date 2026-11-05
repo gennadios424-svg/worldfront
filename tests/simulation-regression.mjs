@@ -9,7 +9,7 @@ assert(open>=0&&close>open,'index.html inline simulation script not found');
 let source=html.slice(open+8,close);
 const boot='init();resize();requestAnimationFrame(frame);';
 assert(source.includes(boot),'simulation boot sequence changed; update the test harness explicitly');
-source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim}};');
+source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses};');
 
 let seed=424242;
 const seededMath={};
@@ -27,6 +27,12 @@ const sim=sandbox.window.__WORLD_TEST__;
 assert(sim,'test API was not exposed');
 const steps=3120,dt=.25;
 for(let i=0;i<steps;i++)sim.update(dt);
+const woodTrade={capital:{x:0,y:0},resources:{wood:10,stone:30,food:10},settlements:[{id:'wood-export',x:300,y:0,residents:[1,2],resources:{wood:120,stone:20,food:0}}],horses:[]};
+sim.updateHorses(woodTrade,1);
+assert(woodTrade.horses[0]?.state==='outbound'&&woodTrade.horses[0]?.cargo?.type==='wood','settlement wood surplus did not export to the capital');
+const stoneTrade={capital:{x:0,y:0},resources:{wood:30,stone:5,food:10},settlements:[{id:'stone-export',x:300,y:0,residents:[1,2],resources:{wood:50,stone:100,food:0}}],horses:[]};
+sim.updateHorses(stoneTrade,1);
+assert(stoneTrade.horses[0]?.state==='outbound'&&stoneTrade.horses[0]?.cargo?.type==='stone','settlement stone surplus did not export to the capital');
 const report=sim.teams.map(t=>{
  const complete=t.buildings.filter(b=>b.progress>=.999);
  const counts={};for(const v of t.civilians)counts[v.task]=(counts[v.task]||0)+1;

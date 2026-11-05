@@ -1,7 +1,7 @@
 name: Simulation regression
 on:
   push:
-    branches: [audit/restore-settlement-simulation]
+    branches: [audit/restore-settlement-simulation, fix/horse-export-conditions]
   workflow_dispatch:
 jobs:
   year-14-simulation:
