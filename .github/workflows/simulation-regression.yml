@@ -1,4 +1,5 @@
 name: Simulation regression
+# Regression coverage for navigation, river barriers, bridges, fishing and population balance.
 on:
   push:
     branches: [feature/living-medieval-colonies, audit/restore-settlement-simulation, fix/horse-export-conditions, feature/civilization-logistics-revolutions, fix/storage-horse-church-expansion, feature/human-lifecycle-recruitment, fix/natural-navigation-fishing-expansion]
