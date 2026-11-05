@@ -9,7 +9,7 @@ assert(open>=0&&close>open,'index.html inline simulation script not found');
 let source=html.slice(open+8,close);
 const boot='init();resize();requestAnimationFrame(frame);';
 assert(source.includes(boot),'simulation boot sequence changed; update the test harness explicitly');
-source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution};');
+source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,constructionRate,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution};');
 
 let seed=424242;
 const seededMath={};
@@ -113,6 +113,7 @@ sim.teams.push(churchTeam);sim.updateCities(churchTeam,5);assert(churchSettlemen
 assert(sim.createBuilding(buildTeam,'church'),'AI could not place a church construction project');const churchProject=buildTeam.buildings.find(b=>b.type==='church');assert(churchProject&&churchProject.progress===0&&churchProject.workers.length>0,'church was not assigned to builders for construction');
 
 project.progress=1;
+assert(sim.constructionRate('house',2,100)>sim.constructionRate('farm',2,100)&&sim.constructionRate('farm',2,100)>sim.constructionRate('church',2,100)&&sim.constructionRate('church',2,100)>sim.constructionRate('barracks',2,100)&&sim.constructionRate('barracks',2,100)>sim.constructionRate('factory',2,100),'building types do not have distinct construction timelines');assert(sim.constructionRate('house',2,20)<sim.constructionRate('house',2,100),'exhausted builders did not construct more slowly');
 const restHome={id:801,type:'house',x:100,y:100,progress:1,radius:13,residents:[]};
 const tiredWorker={id:802,x:124,y:100,tx:190,ty:100,stage:'adult',role:'gatherer',task:'gather',targetNode:{id:1,type:'wood',x:190,y:100,amount:80},energy:20,restThreshold:25,inventory:{wood:0,stone:0,food:0},needs:{rest:.8},speed:20,speedFactor:1,efficiency:1,decision:0};
 const restTeam={capital:{x:100,y:100},buildings:[restHome],civilians:[tiredWorker],nodes:[tiredWorker.targetNode],resources:{wood:0,stone:0,food:0},diplomacy:{wars:[]}};
