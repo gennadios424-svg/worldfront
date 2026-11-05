@@ -9,7 +9,7 @@ assert(open>=0&&close>open,'index.html inline simulation script not found');
 let source=html.slice(open+8,close);
 const boot='init();resize();requestAnimationFrame(frame);';
 assert(source.includes(boot),'simulation boot sequence changed; update the test harness explicitly');
-source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution};');
+source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,constructionRate,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution};');
 
 let seed=424242;
 const seededMath={};
@@ -51,7 +51,7 @@ assert(report.some(r=>r.farms>0&&r.houses>0),'no nation completed both farms and
 assert(report.some(r=>r.roads>0),'settlement roads were not constructed');
 assert(report.some(r=>r.farmCrops>=24&&r.workingFarmers>0),'farms lack organized crop rows or active farmers');
 assert(report.every(r=>r.population>=10),'a nation lost most of its population');
-assert(report.every(r=>r.army>=1),'military recruitment did not occur in every nation');
+assert(report.every(r=>r.army<=Math.max(1,Math.floor(r.adults*.07))),'army size exceeded the population-based recruitment ceiling');
 assert(report.filter(r=>r.settlements>0).length>=2,'independent expansion did not produce settlements in multiple countries');
 assert(report.every(r=>r.settlements===0||r.settlementResidents>0),'a founded settlement failed to attract residents');
 assert(report.every(r=>r.storageHouses>=1&&r.storageHouses<=2),'a nation must have one or two storage hubs, never more than two');
@@ -73,7 +73,7 @@ assert(sim.createBuilding(buildTeam,'house'),'construction order could not creat
 const project=buildTeam.buildings.slice().reverse().find(b=>b.type==='house'&&b.progress<1);
 assert(project,'construction project was not created');
 assert.equal(project.settlement,null,'government ignored the capital before its core infrastructure was ready');
-const carrier=buildTeam.civilians.find(v=>v.targetBuilding===project.id);
+const carrier=buildTeam.civilians.find(v=>v.targetBuilding===project.id&&['pickup_building','deliver'].includes(v.task));
 assert(carrier&&['pickup_building','deliver'].includes(carrier.task),'builder did not receive a physical storage pickup route');
 assert(buildTeam.resources.wood<buildBefore.wood&&buildTeam.resources.stone<buildBefore.stone,'construction materials were not reserved from storage');
 for(let step=0;step<1600&& !project.materialsReady;step++)sim.moveCivilian(buildTeam,carrier,.25,new Map());
@@ -111,5 +111,21 @@ const churchBuilding={id:301,type:'church',x:1570,y:1060,progress:1,workers:[1],
 const churchTeam={name:'CHURCH TEST',seed:17,capital:{x:1570,y:1060},territory:[],resources:{wood:0,stone:0,food:0},civilians:[1,2,3,4].map((id,i)=>({id,x:1580+i*4,y:1060,tx:1580+i*4,ty:1060,stage:'adult',role:'civilian',task:'wander',inventory:{wood:0,stone:0,food:0},needs:{rest:.2,social:.2},decision:0})),buildings:[churchBuilding,{id:302,type:'house',x:1600,y:1060,progress:1,workers:[],residents:[],settlement:churchSettlement},{id:303,type:'farm',x:1620,y:1060,progress:1,workers:[],residents:[],crops:[],settlement:churchSettlement}],settlements:[churchSettlement],horses:[],nodes:[],cities:[],government:{taxRate:.08},military:{morale:75},diplomacy:{wars:[],alliances:[]}};
 sim.teams.push(churchTeam);sim.updateCities(churchTeam,5);assert(churchSettlement.city.morale>.6,'church did not improve local city morale');sim.updateChurches(churchTeam,8);assert(churchTeam.civilians.some(v=>v.task==='church'&&v.targetBuilding===churchBuilding.id),'citizens were not attracted to the church');
 assert(sim.createBuilding(buildTeam,'church'),'AI could not place a church construction project');const churchProject=buildTeam.buildings.find(b=>b.type==='church');assert(churchProject&&churchProject.progress===0&&churchProject.workers.length>0,'church was not assigned to builders for construction');
+
+project.progress=1;
+assert(sim.constructionRate('house',2,100)>sim.constructionRate('farm',2,100)&&sim.constructionRate('farm',2,100)>sim.constructionRate('church',2,100)&&sim.constructionRate('church',2,100)>sim.constructionRate('barracks',2,100)&&sim.constructionRate('barracks',2,100)>sim.constructionRate('factory',2,100),'building types do not have distinct construction timelines');assert(sim.constructionRate('house',2,20)<sim.constructionRate('house',2,100),'exhausted builders did not construct more slowly');
+const restHome={id:801,type:'house',x:100,y:100,progress:1,radius:13,residents:[]};
+const tiredWorker={id:802,x:124,y:100,tx:190,ty:100,stage:'adult',role:'gatherer',task:'gather',targetNode:{id:1,type:'wood',x:190,y:100,amount:80},energy:20,restThreshold:25,inventory:{wood:0,stone:0,food:0},needs:{rest:.8},speed:20,speedFactor:1,efficiency:1,decision:0};
+const restTeam={capital:{x:100,y:100},buildings:[restHome],civilians:[tiredWorker],nodes:[tiredWorker.targetNode],resources:{wood:0,stone:0,food:0},diplomacy:{wars:[]}};
+const walkingPerson={stage:'adult',task:'gather',role:'civilian',energy:90,restThreshold:10,tx:20,x:0,ty:0,y:0};const runningPerson={...walkingPerson,running:true};sim.updateFatigue(restTeam,walkingPerson,1);sim.updateFatigue(restTeam,runningPerson,1);assert(runningPerson.energy<walkingPerson.energy,'running did not consume more energy than walking');sim.updateFatigue(restTeam,tiredWorker,1);assert.equal(tiredWorker.task,'rest','exhausted civilian did not start resting');assert.equal(tiredWorker.suspendedTask.task,'gather','resting did not preserve the previous work assignment');
+for(let i=0;i<24;i++)sim.updateFatigue(restTeam,tiredWorker,1);assert(tiredWorker.energy>75,'civilian energy did not recover while resting');assert.equal(tiredWorker.task,'gather','civilian did not resume the saved task after resting');
+const tiredSoldier={id:803,x:124,y:100,tx:150,ty:100,stage:'adult',role:'soldier',task:'guard',energy:18,restThreshold:22,inventory:{wood:0,stone:0,food:0},needs:{rest:.8}};
+restTeam.civilians.push(tiredSoldier);sim.updateFatigue(restTeam,tiredSoldier,1);assert.equal(tiredSoldier.task,'rest','soldier fatigue did not trigger recovery');
+const brokenWorker={id:804,stage:'adult',role:'builder',task:'build',targetBuilding:999,taskSince:1,inventory:{wood:0,stone:0,food:0}};
+restTeam.civilians.push(brokenWorker);sim.validateCivilianTask(restTeam,brokenWorker);assert.equal(brokenWorker.task,'wander','invalid construction task was not reassigned');
+const barracks={id:805,type:'barracks',x:100,y:100,progress:1,radius:25,workers:[],residents:[]};
+const recruitTeam={name:'RECRUIT TEST',capital:{x:100,y:100},buildings:[barracks],civilians:Array.from({length:40},(_,i)=>({id:900+i,x:100+i,y:100,tx:100+i,ty:100,stage:'adult',age:25,role:'civilian',task:'idle',energy:90,inventory:{wood:0,stone:0,food:0},needs:{rest:.1},speed:20,speedFactor:1,efficiency:1,decision:0})),resources:{wood:100,stone:100,food:100},military:{lastRecruit:0,casualties:0,morale:75},diplomacy:{wars:[]},settlements:[],nodes:[]};
+sim.updateMilitary(recruitTeam,1);const trainee=recruitTeam.civilians.find(v=>v.role==='trainee');assert(trainee,'recruitment did not create a trainee');assert.equal(recruitTeam.civilians.filter(v=>v.role==='soldier').length,0,'civilian was instantly converted into a soldier');trainee.x=barracks.x;trainee.y=barracks.y;for(let i=0;i<45;i++)sim.updateMilitary(recruitTeam,1);assert.equal(trainee.role,'soldier','trainee did not graduate after the training period');
+const limitedTeam={...buildTeam,buildings:buildTeam.buildings.slice(),civilians:buildTeam.civilians.map(v=>({...v,inventory:{wood:0,stone:0,food:0}}))};limitedTeam.buildings.push({id:999,type:'farm',progress:0,materialsRequired:{wood:10,stone:5},materialsReady:false,workers:[]});assert.equal(sim.createBuilding(limitedTeam,'house'),false,'AI started simultaneous construction beyond its project capacity');
 assert(report.every(r=>r.storageHouses<=2),'a country exceeded the storage cap during the multi-year simulation');
 assert(report.every(r=>sim.teams.find(t=>t.name===r.nation)?.expansionAI),'a country did not run its own territorial expansion evaluation');
