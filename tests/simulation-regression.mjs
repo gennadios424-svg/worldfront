@@ -9,7 +9,7 @@ assert(open>=0&&close>open,'index.html inline simulation script not found');
 let source=html.slice(open+8,close);
 const boot='init();resize();requestAnimationFrame(frame);';
 assert(source.includes(boot),'simulation boot sequence changed; update the test harness explicitly');
-source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses};');
+source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateMilitary,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,teamTerritoryPath,triggerRevolution};');
 
 let seed=424242;
 const seededMath={};
@@ -36,7 +36,7 @@ assert(stoneTrade.horses[0]?.state==='outbound'&&stoneTrade.horses[0]?.cargo?.ty
 const report=sim.teams.map(t=>{
  const complete=t.buildings.filter(b=>b.progress>=.999);
  const counts={};for(const v of t.civilians)counts[v.task]=(counts[v.task]||0)+1;
- return {nation:t.name,year:sim.year,settlements:t.settlements.length,cities:t.cities?.length||0,population:t.civilians.length,adults:t.civilians.filter(v=>v.stage==='adult').length,farms:complete.filter(b=>b.type==='farm').length,houses:complete.filter(b=>b.type==='house').length,factories:complete.filter(b=>b.type==='factory').length,roads:t.settlements.reduce((n,s)=>n+(s.roads||[]).filter(r=>r.progress>.1).length,0),horses:t.horses?.length||0,army:t.army||0,alliances:t.diplomacy?.alliances?.length||0,wars:t.diplomacy?.wars?.length||0,mergedSettlements:Math.max(0,...(t.cities||[]).map(c=>c.settlements?.length||0)),minors:t.civilians.filter(v=>v.stage!=='adult').length,settlementResidents:t.settlements.reduce((n,st)=>n+st.residents.length,0),stock:{wood:+t.resources.wood.toFixed(1),stone:+t.resources.stone.toFixed(1),food:+t.resources.food.toFixed(1)},tasks:counts};
+ return {nation:t.name,year:sim.year,settlements:t.settlements.length,cities:t.cities?.length||0,population:t.civilians.length,adults:t.civilians.filter(v=>v.stage==='adult').length,farms:complete.filter(b=>b.type==='farm').length,houses:complete.filter(b=>b.type==='house').length,factories:complete.filter(b=>b.type==='factory').length,roads:t.settlements.reduce((n,s)=>n+(s.roads||[]).filter(r=>r.progress>.1).length,0),horses:t.horses?.length||0,storageHouses:t.buildings.filter(b=>b.type==='storage'&&!b.settlement).length,settlementStorageHouses:t.settlements.reduce((n,st)=>n+t.buildings.filter(b=>b.type==='storage'&&b.settlement===st).length,0),storedTotal:+(t.resources.wood+t.resources.stone+t.resources.food).toFixed(1),army:t.army||0,alliances:t.diplomacy?.alliances?.length||0,wars:t.diplomacy?.wars?.length||0,mergedSettlements:Math.max(0,...(t.cities||[]).map(c=>c.settlements?.length||0)),minors:t.civilians.filter(v=>v.stage!=='adult').length,settlementResidents:t.settlements.reduce((n,st)=>n+st.residents.length,0),stock:{wood:+t.resources.wood.toFixed(1),stone:+t.resources.stone.toFixed(1),food:+t.resources.food.toFixed(1)},tasks:counts};
 });
 console.log(JSON.stringify({seed:424242,simSeconds:sim.sim,year:sim.year,nations:report},null,2));
 assert(sim.year>=14,'simulation did not reach Year 14');
@@ -46,3 +46,34 @@ assert(report.every(r=>r.population>=10),'a nation lost most of its population')
 assert(report.every(r=>r.army>=1),'military recruitment did not occur in every nation');
 assert(report.some(r=>r.mergedSettlements>=2),'nearby developed settlements did not merge into a city');
 assert(report.every(r=>r.settlementResidents>0),'settlements failed to attract residents');
+assert(report.every(r=>r.storageHouses>=1),'a nation has no physical storage house');
+assert(report.every(r=>r.settlementStorageHouses>=r.settlements),'a settlement has no local storage house');
+assert(report.some(r=>r.storedTotal>0),'resources were not deposited into storage');
+const identityTeam=sim.teams.find(t=>t.settlements.length>=2);
+if(identityTeam){const before=identityTeam.cities.map(c=>({id:c.id,name:c.name}));sim.updateCities(identityTeam,5);for(const city of identityTeam.cities){const old=before.find(q=>q.id===city.id);if(old)assert.equal(city.name,old.name,'city identity/name changed during refresh')}}
+const supportTeam={name:'SUPPORT TEST',capital:{x:1570,y:1060},resources:{wood:0,stone:0,food:0},settlements:[{id:'support-source',name:'Source',x:1570,y:1060,residents:[1,2],resources:{wood:120,stone:20,food:20}},{id:'support-destination',name:'Hungry Town',x:1670,y:1060,residents:[3,4],resources:{wood:0,stone:0,food:0}}],horses:[]};
+sim.updateHorses(supportTeam,1);
+assert(supportTeam.horses.some(h=>h.state==='outbound'&&h.to?.id==='support-destination'&&h.cargo?.type==='wood'),'cities did not send surplus resources to another city');
+const unrestA={id:1,x:1570,y:1060,tx:1570,ty:1060,stage:'adult',role:'civilian',task:'wander',inventory:{wood:0,stone:0,food:0},needs:{social:.9},settlementHome:null};
+const unrestB={id:2,x:1572,y:1060,tx:1572,ty:1060,stage:'adult',role:'civilian',task:'wander',inventory:{wood:0,stone:0,food:0},needs:{social:.8},settlementHome:null};
+const unrestSettlement={id:'unrest-town',name:'Unrest Town',cityName:'Unrest Town City',x:1570,y:1060,created:0,residents:[1,2],resources:{wood:0,stone:0,food:0},roads:[],unhappyYears:10,revolted:false,unrest:{level:.9,stage:'riot',leaderId:null,lastFire:0}};
+const unrestTeam={name:'UNREST TEST',color:'#456789',dark:'#223344',seed:3,capital:{x:1570,y:1060},outposts:[],pendingSettlements:[],ball:{x:1570,y:1060,angle:0},territory:[],population:2,army:0,civilians:[unrestA,unrestB],buildings:[],resources:{wood:0,stone:0,food:0},nodes:[],buildingSerial:1,settlements:[unrestSettlement],cities:[],horses:[],rebelZones:[],military:{lastRecruit:0,casualties:0,morale:60},diplomacy:{relations:{},alliances:[],wars:[],lastReview:0},government:{leader:'President',taxRate:.4}};
+sim.teams.push(unrestTeam);
+sim.updateUnrest(unrestTeam,unrestSettlement,1,.01);
+assert(unrestSettlement.revolted,'severe, sustained unrest did not escalate into revolution');
+const rebel=sim.teams.find(t=>t.isRebel&&t.name==='Unrest Town City');
+assert(rebel&&rebel.civilians.some(v=>v.role==='soldier'),'revolution did not form an organized rebel faction');
+const responseSoldier={id:5,x:1570,y:1060,tx:1570,ty:1060,stage:'adult',role:'soldier',task:'guard',health:100,combatCooldown:999,inventory:{wood:0,stone:0,food:0},speedFactor:1};
+const protester={id:6,x:1580,y:1060,tx:1580,ty:1060,stage:'adult',role:'protester',task:'protest',inventory:{wood:0,stone:0,food:0}};
+const responseTown={id:'response-town',x:1570,y:1060,residents:[6],resources:{wood:0,stone:0,food:0},unrest:{level:.8,stage:'riot'}};
+const responseTeam={name:'RESPONSE TEST',capital:{x:1570,y:1060},resources:{wood:0,stone:0,food:0},civilians:[responseSoldier,protester],settlements:[responseTown],military:{lastRecruit:999,casualties:0,morale:75},diplomacy:{wars:[],alliances:[]}};
+sim.updateMilitary(responseTeam,1);
+assert.equal(responseSoldier.task,'suppress','military did not respond to serious unrest');
+const warA={name:'WAR A',capital:{x:1570,y:1060},resources:{food:100,wood:0,stone:0},civilians:[{id:11,x:1570,y:1060,tx:1570,ty:1060,stage:'adult',role:'soldier',task:'guard',health:100,combatCooldown:0,speedFactor:1,inventory:{wood:0,stone:0,food:0}}],settlements:[],military:{lastRecruit:999,casualties:0,morale:75},diplomacy:{wars:[{name:'WAR B',since:sim}],alliances:[]}};
+const warB={name:'WAR B',capital:{x:1580,y:1060},resources:{food:100,wood:0,stone:0},civilians:[{id:12,x:1575,y:1060,tx:1575,ty:1060,stage:'adult',role:'soldier',task:'guard',health:100,combatCooldown:999,speedFactor:1,inventory:{wood:0,stone:0,food:0}}],settlements:[],military:{lastRecruit:999,casualties:0,morale:75},diplomacy:{wars:[{name:'WAR A',since:sim}],alliances:[]}};
+sim.teams.push(warA,warB);
+sim.updateMilitary(warA,1);
+assert(warA.civilians[0].task==='march'&&warB.civilians[0].health<100,'war did not produce organized movement and combat');
+const border=sim.teamTerritoryPath(warA),radii=border.map(p=>Math.hypot(p.x-warA.capital.x,p.y-warA.capital.y));
+assert(Math.max(...radii)-Math.min(...radii)>18,'territory border lacks natural irregularity');
+
