@@ -36,17 +36,17 @@ assert(stoneTrade.horses[0]?.state==='outbound'&&stoneTrade.horses[0]?.cargo?.ty
 const report=sim.teams.map(t=>{
  const complete=t.buildings.filter(b=>b.progress>=.999);
  const counts={};for(const v of t.civilians)counts[v.task]=(counts[v.task]||0)+1;
- return {nation:t.name,year:sim.year,settlements:t.settlements.length,cities:t.cities?.length||0,population:t.civilians.length,adults:t.civilians.filter(v=>v.stage==='adult').length,farms:complete.filter(b=>b.type==='farm').length,houses:complete.filter(b=>b.type==='house').length,factories:complete.filter(b=>b.type==='factory').length,roads:t.settlements.reduce((n,s)=>n+(s.roads||[]).filter(r=>r.progress>.1).length,0),horses:t.horses?.length||0,storageHouses:t.buildings.filter(b=>b.type==='storage'&&!b.settlement).length,settlementStorageHouses:t.settlements.reduce((n,st)=>n+t.buildings.filter(b=>b.type==='storage'&&b.settlement===st).length,0),storedTotal:+(t.resources.wood+t.resources.stone+t.resources.food).toFixed(1),army:t.army||0,alliances:t.diplomacy?.alliances?.length||0,wars:t.diplomacy?.wars?.length||0,mergedSettlements:Math.max(0,...(t.cities||[]).map(c=>c.settlements?.length||0)),minors:t.civilians.filter(v=>v.stage!=='adult').length,settlementResidents:t.settlements.reduce((n,st)=>n+st.residents.length,0),stock:{wood:+t.resources.wood.toFixed(1),stone:+t.resources.stone.toFixed(1),food:+t.resources.food.toFixed(1)},tasks:counts};
+ return {nation:t.name,year:sim.year,settlements:t.settlements.length,cities:t.cities?.length||0,population:t.civilians.length,adults:t.civilians.filter(v=>v.stage==='adult').length,farms:complete.filter(b=>b.type==='farm').length,houses:complete.filter(b=>b.type==='house').length,factories:complete.filter(b=>b.type==='factory').length,roads:t.settlements.reduce((n,s)=>n+(s.roads||[]).filter(r=>r.progress>.1).length,0),farmCrops:complete.filter(b=>b.type==='farm').reduce((n,b)=>n+(b.crops?.length||0),0),workingFarmers:t.civilians.filter(v=>v.task==='farm').length,capitalFarms:complete.filter(b=>b.type==='farm'&&!b.settlement).length,capitalHouses:complete.filter(b=>b.type==='house'&&!b.settlement).length,horses:t.horses?.length||0,storageHouses:t.buildings.filter(b=>b.type==='storage'&&!b.settlement).length,settlementStorageHouses:t.settlements.reduce((n,st)=>n+t.buildings.filter(b=>b.type==='storage'&&b.settlement===st).length,0),storedTotal:+(t.resources.wood+t.resources.stone+t.resources.food).toFixed(1),army:t.army||0,alliances:t.diplomacy?.alliances?.length||0,wars:t.diplomacy?.wars?.length||0,mergedSettlements:Math.max(0,...(t.cities||[]).map(c=>c.settlements?.length||0)),minors:t.civilians.filter(v=>v.stage!=='adult').length,settlementResidents:t.settlements.reduce((n,st)=>n+st.residents.length,0),stock:{wood:+t.resources.wood.toFixed(1),stone:+t.resources.stone.toFixed(1),food:+t.resources.food.toFixed(1)},tasks:counts};
 });
 console.log(JSON.stringify({seed:424242,simSeconds:sim.sim,year:sim.year,nations:report},null,2));
 assert(sim.year>=14,'simulation did not reach Year 14');
 assert(report.some(r=>r.settlements>0),'no nation founded a settlement by Year 14');
-assert(report.some(r=>r.farms>0&&r.houses>0),'no nation completed both farms and houses by Year 14');
+assert(report.some(r=>r.farms>0&&r.houses>0),'no nation completed both farms and houses by Year 14');\nassert(report.some(r=>r.roads>0),'settlement roads were not constructed');\nassert(report.some(r=>r.farmCrops>=24&&r.workingFarmers>0),'farms lack organized crop rows or active farmers');
 assert(report.every(r=>r.population>=10),'a nation lost most of its population');
 assert(report.every(r=>r.army>=1),'military recruitment did not occur in every nation');
 assert(report.some(r=>r.mergedSettlements>=2),'nearby developed settlements did not merge into a city');
 assert(report.every(r=>r.settlements===0||r.settlementResidents>0),'a founded settlement failed to attract residents');
-assert(report.every(r=>r.storageHouses>=1),'a nation has no physical storage house');
+assert(report.every(r=>r.storageHouses>=1),'a nation has no physical storage house');\nassert(source.includes('STORE')&&source.includes('gaitPhase'),'storage stock visuals or horse animation are missing');
 assert(report.every(r=>r.settlementStorageHouses>=r.settlements),'a settlement has no local storage house');
 assert(report.some(r=>r.storedTotal>0),'resources were not deposited into storage');
 const identityTeam=sim.teams.find(t=>t.settlements.length>=2);
@@ -64,7 +64,7 @@ buildTeam.government=buildTeam.government||{};buildTeam.government.capitalReady=
 const buildBefore={wood:buildTeam.resources.wood,stone:buildTeam.resources.stone};
 assert(sim.createBuilding(buildTeam,'house'),'construction order could not create a staffed building');
 const project=buildTeam.buildings.slice().reverse().find(b=>b.type==='house'&&b.progress<1);
-assert(project,'construction project was not created');
+assert(project,'construction project was not created');\nassert.equal(project.settlement,null,'government ignored the capital before its core infrastructure was ready');
 const carrier=buildTeam.civilians.find(v=>v.targetBuilding===project.id);
 assert(carrier&&['pickup_building','deliver'].includes(carrier.task),'builder did not receive a physical storage pickup route');
 assert(buildTeam.resources.wood<buildBefore.wood&&buildTeam.resources.stone<buildBefore.stone,'construction materials were not reserved from storage');
