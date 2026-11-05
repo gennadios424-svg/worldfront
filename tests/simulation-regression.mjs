@@ -99,7 +99,8 @@ const warA={name:'WAR A',seed:5,outposts:[],capital:{x:1570,y:1060},resources:{f
 const warB={name:'WAR B',capital:{x:1580,y:1060},resources:{food:100,wood:0,stone:0},civilians:[{id:12,x:1575,y:1060,tx:1575,ty:1060,stage:'adult',role:'soldier',task:'guard',health:100,combatCooldown:999,speedFactor:1,inventory:{wood:0,stone:0,food:0}}],settlements:[{id:'captured-town',name:'Frontier Town',cityName:'Frontier Town City',x:1575,y:1060,residents:[12],resources:{wood:20,stone:20,food:10}}],military:{lastRecruit:999,casualties:0,morale:75},diplomacy:{wars:[{name:'WAR A',since:sim}],alliances:[]}};
 sim.teams.push(warA,warB);
 sim.updateMilitary(warA,1);
-assert(warA.civilians[0].task==='march'&&warB.civilians[0].health<100,'war did not produce organized movement and combat');\nfor(let i=0;i<340;i++)sim.updateMilitary(warA,1);\nassert.equal(warB.settlements[0].occupiedBy,'WAR A','army failed to capture and hold enemy territory');
+assert(warA.civilians[0].task==='march'&&warB.civilians[0].health<100,'war did not produce organized movement and combat');
+for(let i=0;i<340;i++)sim.updateMilitary(warA,1);\nassert.equal(warB.settlements[0].occupiedBy,'WAR A','army failed to capture and hold enemy territory');
 const border=sim.teamTerritoryPath(warA),radii=border.map(p=>Math.hypot(p.x-warA.capital.x,p.y-warA.capital.y));
 assert(Math.max(...radii)-Math.min(...radii)>18,'territory border lacks natural irregularity');
 
