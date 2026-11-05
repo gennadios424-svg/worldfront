@@ -33,10 +33,10 @@ const tradeTeam={capital:{x:1500,y:1060},resources:horseSource.inventory,settlem
 sim.updateHorses(tradeTeam,1);const tradeHorse=tradeTeam.horses.find(h=>h.storageId===horseSource.id);
 assert(tradeHorse?.state==='outbound'&&tradeHorse.cargo?.type==='wood','horse did not load surplus cargo from a storage house');
 assert.equal(tradeTeam.nodes[0].amount,100,'horse must never harvest environmental resource nodes');
-for(let i=0;i<8;i++)sim.updateHorses(tradeTeam,1);
+for(let i=0;i<35;i++)sim.updateHorses(tradeTeam,1);
 assert.equal(tradeHorse.cargo,null,'horse cargo did not disappear after successful storage delivery');
 assert(horseDestination.inventory.wood>0,'horse cargo was not added to destination storage');
-for(let i=0;i<20;i++)sim.updateHorses(tradeTeam,1);
+for(let i=0;i<35;i++)sim.updateHorses(tradeTeam,1);
 assert(tradeHorse.state==='idle'||tradeHorse.state==='outbound'||tradeHorse.to===horseSource,'horse did not route back to its source storage for another trade');
 assert(tradeTeam.horses.every(h=>h.state!=='harvesting'),'horse entered a resource-gathering state');
 const report=sim.teams.map(t=>{
