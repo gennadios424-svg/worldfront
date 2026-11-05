@@ -70,8 +70,8 @@ function updateCities(t,dt){
   for(const st of component){st.city=city;st.cityName=st.cityName||st.name+' City';st.unhappyYears=morale<.18?st.unhappyYears+dt/60:Math.max(0,st.unhappyYears-dt/120);
    if(st.unhappyYears>=10&&!st.revolted)triggerRevolution(t,st);
    if(sim-(st.lastLocalDecision||0)>25){st.lastLocalDecision=sim;const local=t.buildings.filter(b=>b.settlement===st);const underHouse=local.some(b=>b.type==='house'&&b.progress<1),underFarm=local.some(b=>b.type==='farm'&&b.progress<1);
-    const reserveLocal=t.settlements.length<Math.floor(sim/180)?{wood:12,stone:6}:{wood:0,stone:0};if(population>0&&st.resources.wood>=18+reserveLocal.wood&&st.resources.stone>=12+reserveLocal.stone&&local.filter(b=>b.type==='house').length<Math.max(1,Math.ceil(st.residents.length/6))&&!underHouse)createBuilding(t,'house',st);
-    else if(st.resources.wood>=22+reserveLocal.wood&&st.resources.stone>=10+reserveLocal.stone&&local.filter(b=>b.type==='farm').length<1&&!underFarm)createBuilding(t,'farm',st);
+    const desiredSettlements=sim<180?0:1+Math.floor((sim-180)/300),expansionDue=t.settlements.length<desiredSettlements,last=t.settlements[t.settlements.length-1],reserveLocal=expansionDue&&last!==st&&t.buildings.some(b=>b.settlement===st&&b.progress>=1)?{wood:12,stone:6}:{wood:0,stone:0};if(population>0&&st.resources.wood>=14+reserveLocal.wood&&st.resources.stone>=8+reserveLocal.stone&&local.filter(b=>b.type==='house').length<Math.max(1,Math.ceil(st.residents.length/6))&&!underHouse)createBuilding(t,'house',st);
+    else if(st.resources.wood>=16+reserveLocal.wood&&st.resources.stone>=8+reserveLocal.stone&&local.filter(b=>b.type==='farm').length<1&&!underFarm)createBuilding(t,'farm',st);
     if(city.shortage){t.government=t.government||{leader:'President',alerts:[]};t.government.alerts=t.government.alerts||[];t.government.alerts.push({city:city.name,problem:city.shortage,at:sim});t.government.alerts=t.government.alerts.slice(-12)}
    }
   }
