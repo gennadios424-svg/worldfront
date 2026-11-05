@@ -55,7 +55,7 @@ function updateCities(t,dt){
  t.cityClock=(t.cityClock||0)+dt;if(t.cityClock<5)return;t.cityClock=0;t.cities=[];
  const settlements=t.settlements||[],remaining=new Set(settlements);
  const components=[];
- while(remaining.size){const seed=remaining.values().next().value;remaining.delete(seed);const component=[seed];for(let i=0;i<component.length;i++){const a=component[i],aDeveloped=t.buildings.some(b=>b.settlement===a&&b.progress>=.75);for(const b of [...remaining]){const bDeveloped=t.buildings.some(q=>q.settlement===b&&q.progress>=.75);if(aDeveloped&&bDeveloped&&Math.hypot(a.x-b.x,a.y-b.y)<=420){remaining.delete(b);component.push(b)}}}components.push(component)}
+ while(remaining.size){const seed=remaining.values().next().value;remaining.delete(seed);const component=[seed];for(let i=0;i<component.length;i++){const a=component[i],aDeveloped=t.buildings.some(b=>b.settlement===a&&b.progress>=.75);for(const b of [...remaining]){const bDeveloped=t.buildings.some(q=>q.settlement===b&&q.progress>=.75);if(aDeveloped&&bDeveloped&&Math.hypot(a.x-b.x,a.y-b.y)<=650){remaining.delete(b);component.push(b)}}}components.push(component)}
  for(const component of components){
   const localBuildings=t.buildings.filter(b=>component.includes(b.settlement)&&b.type!=='capital'&&b.progress>=.75);
   const houses=localBuildings.filter(b=>b.type==='house').length,farms=localBuildings.filter(b=>b.type==='farm').length,factories=localBuildings.filter(b=>b.type==='factory').length;
