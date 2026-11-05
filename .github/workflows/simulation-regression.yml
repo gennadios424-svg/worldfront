@@ -1,7 +1,7 @@
 name: Simulation regression
 on:
   push:
-    branches: [audit/restore-settlement-simulation, fix/horse-export-conditions, feature/civilization-logistics-revolutions, fix/storage-horse-church-expansion]
+    branches: [audit/restore-settlement-simulation, fix/horse-export-conditions, feature/civilization-logistics-revolutions, fix/storage-horse-church-expansion, feature/human-lifecycle-recruitment]
   workflow_dispatch:
 jobs:
   year-14-simulation:
