@@ -36,4 +36,7 @@ console.log(JSON.stringify({seed:424242,simSeconds:sim.sim,year:sim.year,nations
 assert(sim.year>=14,'simulation did not reach Year 14');
 assert(report.some(r=>r.settlements>0),'no nation founded a settlement by Year 14');
 assert(report.some(r=>r.farms>0&&r.houses>0),'no nation completed both farms and houses by Year 14');
-assert(report.every(r=>r.population>=10),'a nation lost most of its population');\nassert(report.every(r=>r.army>=1),'military recruitment did not occur in every nation');\nassert(report.some(r=>r.mergedSettlements>=2),'nearby developed settlements did not merge into a city');\nassert(report.every(r=>r.settlementResidents>0),'settlements failed to attract residents');
+assert(report.every(r=>r.population>=10),'a nation lost most of its population');
+assert(report.every(r=>r.army>=1),'military recruitment did not occur in every nation');
+assert(report.some(r=>r.mergedSettlements>=2),'nearby developed settlements did not merge into a city');
+assert(report.every(r=>r.settlementResidents>0),'settlements failed to attract residents');
