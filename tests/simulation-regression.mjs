@@ -71,7 +71,8 @@ assert(buildTeam.resources.wood<buildBefore.wood&&buildTeam.resources.stone<buil
 for(let step=0;step<1600&& !project.materialsReady;step++)sim.moveCivilian(buildTeam,carrier,.25,new Map());
 assert(project.materialsReady,'carrier failed to collect materials from storage and deliver them to the building site');
 assert(project.materialsDelivered.wood>=project.materialsRequired.wood&&project.materialsDelivered.stone>=project.materialsRequired.stone,'construction delivery did not contain the required materials');
-\nconst supportTeam={name:'SUPPORT TEST',capital:{x:1570,y:1060},resources:{wood:0,stone:0,food:0},settlements:[{id:'support-source',name:'Source',x:1570,y:1060,residents:[1,2],resources:{wood:120,stone:20,food:20}},{id:'support-destination',name:'Hungry Town',x:1670,y:1060,residents:[3,4],resources:{wood:0,stone:0,food:0}}],horses:[]};
+
+const supportTeam={name:'SUPPORT TEST',capital:{x:1570,y:1060},resources:{wood:0,stone:0,food:0},settlements:[{id:'support-source',name:'Source',x:1570,y:1060,residents:[1,2],resources:{wood:120,stone:20,food:20}},{id:'support-destination',name:'Hungry Town',x:1670,y:1060,residents:[3,4],resources:{wood:0,stone:0,food:0}}],horses:[]};
 sim.updateHorses(supportTeam,1);
 assert(supportTeam.horses.some(h=>h.state==='outbound'&&h.to?.id==='support-destination'&&h.cargo?.type==='wood'),'cities did not send surplus resources to another city');
 const unrestA={id:1,x:1570,y:1060,tx:1570,ty:1060,stage:'adult',role:'civilian',task:'wander',inventory:{wood:0,stone:0,food:0},needs:{social:.9},settlementHome:null};
