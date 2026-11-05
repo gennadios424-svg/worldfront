@@ -69,7 +69,7 @@ const responseTown={id:'response-town',x:1570,y:1060,residents:[6],resources:{wo
 const responseTeam={name:'RESPONSE TEST',capital:{x:1570,y:1060},resources:{wood:0,stone:0,food:0},civilians:[responseSoldier,protester],settlements:[responseTown],military:{lastRecruit:999,casualties:0,morale:75},diplomacy:{wars:[],alliances:[]}};
 sim.updateMilitary(responseTeam,1);
 assert.equal(responseSoldier.task,'suppress','military did not respond to serious unrest');
-const warA={name:'WAR A',capital:{x:1570,y:1060},resources:{food:100,wood:0,stone:0},civilians:[{id:11,x:1570,y:1060,tx:1570,ty:1060,stage:'adult',role:'soldier',task:'guard',health:100,combatCooldown:0,speedFactor:1,inventory:{wood:0,stone:0,food:0}}],settlements:[],military:{lastRecruit:999,casualties:0,morale:75},diplomacy:{wars:[{name:'WAR B',since:sim}],alliances:[]}};
+const warA={name:'WAR A',seed:5,outposts:[],capital:{x:1570,y:1060},resources:{food:100,wood:0,stone:0},civilians:[{id:11,x:1570,y:1060,tx:1570,ty:1060,stage:'adult',role:'soldier',task:'guard',health:100,combatCooldown:0,speedFactor:1,inventory:{wood:0,stone:0,food:0}}],settlements:[],military:{lastRecruit:999,casualties:0,morale:75},diplomacy:{wars:[{name:'WAR B',since:sim}],alliances:[]}};
 const warB={name:'WAR B',capital:{x:1580,y:1060},resources:{food:100,wood:0,stone:0},civilians:[{id:12,x:1575,y:1060,tx:1575,ty:1060,stage:'adult',role:'soldier',task:'guard',health:100,combatCooldown:999,speedFactor:1,inventory:{wood:0,stone:0,food:0}}],settlements:[],military:{lastRecruit:999,casualties:0,morale:75},diplomacy:{wars:[{name:'WAR A',since:sim}],alliances:[]}};
 sim.teams.push(warA,warB);
 sim.updateMilitary(warA,1);
