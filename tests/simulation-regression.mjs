@@ -73,7 +73,7 @@ assert(sim.createBuilding(buildTeam,'house'),'construction order could not creat
 const project=buildTeam.buildings.slice().reverse().find(b=>b.type==='house'&&b.progress<1);
 assert(project,'construction project was not created');
 assert.equal(project.settlement,null,'government ignored the capital before its core infrastructure was ready');
-const carrier=buildTeam.civilians.find(v=>v.targetBuilding===project.id);
+const carrier=buildTeam.civilians.find(v=>v.targetBuilding===project.id);console.log('BUILDER ASSIGN DEBUG',JSON.stringify({projectId:project.id,workers:project.workers,people:buildTeam.civilians.map(v=>({id:v.id,role:v.role,task:v.task,target:v.targetBuilding,inventory:v.inventory})),buildings:buildTeam.buildings.map(b=>({id:b.id,type:b.type,progress:b.progress}))}));
 assert(carrier&&['pickup_building','deliver'].includes(carrier.task),'builder did not receive a physical storage pickup route');
 assert(buildTeam.resources.wood<buildBefore.wood&&buildTeam.resources.stone<buildBefore.stone,'construction materials were not reserved from storage');
 for(let step=0;step<1600&& !project.materialsReady;step++)sim.moveCivilian(buildTeam,carrier,.25,new Map());
