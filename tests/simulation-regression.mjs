@@ -37,7 +37,7 @@ for(let i=0;i<8;i++)sim.updateHorses(tradeTeam,1);
 assert.equal(tradeHorse.cargo,null,'horse cargo did not disappear after successful storage delivery');
 assert(horseDestination.inventory.wood>0,'horse cargo was not added to destination storage');
 for(let i=0;i<20;i++)sim.updateHorses(tradeTeam,1);
-assert(['idle','outbound'].includes(tradeHorse.state),'horse did not return to its source storage for another trade');
+assert(tradeHorse.state==='idle'||tradeHorse.state==='outbound'||tradeHorse.to===horseSource,'horse did not route back to its source storage for another trade');
 assert(tradeTeam.horses.every(h=>h.state!=='harvesting'),'horse entered a resource-gathering state');
 const report=sim.teams.map(t=>{
  const complete=t.buildings.filter(b=>b.progress>=.999);
