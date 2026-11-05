@@ -52,12 +52,12 @@ assert(report.some(r=>r.storedTotal>0),'resources were not deposited into storag
 const identityTeam=sim.teams.find(t=>t.settlements.length>=2);
 if(identityTeam){const before=identityTeam.cities.map(c=>({id:c.id,name:c.name}));sim.updateCities(identityTeam,5);for(const city of identityTeam.cities){const old=before.find(q=>q.id===city.id);if(old)assert.equal(city.name,old.name,'city identity/name changed during refresh')}}
 
-const storageFixture={capital:{x:1570,y:1060},resources:{wood:0,stone:0,food:0},buildings:[{id:1,type:'storage',x:1600,y:1060,progress:1,settlement:null,capacity:500}],buildingSerial:2};
+const storageFixture={capital:{x:1570,y:1060},territory:Array.from({length:48},(_,i)=>({x:1570+Math.cos(i/48*Math.PI*2)*360,y:1060+Math.sin(i/48*Math.PI*2)*360})),outposts:[],nodes:[],settlements:[],resources:{wood:0,stone:0,food:0},buildings:[{id:1,type:'storage',x:1600,y:1060,progress:1,settlement:null,capacity:500}],buildingSerial:2};
 const storageCarrier={x:1570,y:1060,inventory:{wood:4,stone:3,food:2}};
 assert.equal(sim.depositInventory(storageFixture,storageCarrier,null),0,'storage should accept all available cargo');
 assert.equal(storageFixture.resources.wood,4);assert.equal(storageFixture.resources.stone,3);assert.equal(storageFixture.resources.food,2);
 const secondStore=sim.addStorageHouse(storageFixture,null);
-assert(secondStore.type==='storage'&&sim.teams.length>=4,'multiple storage houses are not supported');
+assert(secondStore.type==='storage'&&storageFixture.buildings.filter(b=>b.type==='storage').length===2,'multiple storage houses are not supported');
 const buildTeam=sim.teams.find(t=>t.civilians.some(v=>v.stage==='adult'&&v.role!=='soldier'));
 assert(buildTeam,'no civilian available for construction logistics');
 buildTeam.government=buildTeam.government||{};buildTeam.government.capitalReady=false;buildTeam.resources.wood+=100;buildTeam.resources.stone+=100;
