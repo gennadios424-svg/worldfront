@@ -3,9 +3,10 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
-const match=html.match(/<script>([\\s\\S]*?)<\\/script>/i);
-assert(match,'index.html inline simulation script not found');
-let source=match[1];
+const open=html.indexOf('<script>');
+const close=html.indexOf('</script>',open);
+assert(open>=0&&close>open,'index.html inline simulation script not found');
+let source=html.slice(open+8,close);
 const boot='init();resize();requestAnimationFrame(frame);';
 assert(source.includes(boot),'simulation boot sequence changed; update the test harness explicitly');
 source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim}};');
