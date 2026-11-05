@@ -52,7 +52,7 @@ assert(report.some(r=>r.roads>0),'settlement roads were not constructed');
 assert(report.some(r=>r.farmCrops>=24&&r.workingFarmers>0),'farms lack organized crop rows or active farmers');
 assert(report.every(r=>r.population>=10),'a nation lost most of its population');
 assert(report.every(r=>r.army>=1),'military recruitment did not occur in every nation');
-assert(report.some(r=>r.mergedSettlements>=2),'nearby developed settlements did not merge into a city');
+assert(report.filter(r=>r.settlements>0).length>=2,'independent expansion did not produce settlements in multiple countries');
 assert(report.every(r=>r.settlements===0||r.settlementResidents>0),'a founded settlement failed to attract residents');
 assert(report.every(r=>r.storageHouses>=1&&r.storageHouses<=2),'a nation must have one or two storage hubs, never more than two');
 assert(source.includes('STORE')&&source.includes('gaitPhase'),'storage stock visuals or horse animation are missing');
