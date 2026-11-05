@@ -100,7 +100,8 @@ const warB={name:'WAR B',capital:{x:1580,y:1060},resources:{food:100,wood:0,ston
 sim.teams.push(warA,warB);
 sim.updateMilitary(warA,1);
 assert(warA.civilians[0].task==='march'&&warB.civilians[0].health<100,'war did not produce organized movement and combat');
-for(let i=0;i<340;i++)sim.updateMilitary(warA,1);\nassert.equal(warB.settlements[0].occupiedBy,'WAR A','army failed to capture and hold enemy territory');
+for(let i=0;i<340;i++)sim.updateMilitary(warA,1);
+assert.equal(warB.settlements[0].occupiedBy,'WAR A','army failed to capture and hold enemy territory');
 const border=sim.teamTerritoryPath(warA),radii=border.map(p=>Math.hypot(p.x-warA.capital.x,p.y-warA.capital.y));
 assert(Math.max(...radii)-Math.min(...radii)>18,'territory border lacks natural irregularity');
 
