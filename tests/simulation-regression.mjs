@@ -194,4 +194,16 @@ const ratioTeam={capital:{x:1500,y:900},resources:{food:0,wood:0,stone:0},settle
 sim.updateMilitary(ratioTeam,10);
 assert(ratioTeam.military.populationRatio>1,'military-to-civilian ratio was not calculated');
 assert(ratioTeam.military.morale<80&&ratioTeam.workforceModifier<1,'excessive military population did not damage morale and civilian productivity');
+const growthSettlement={id:'growth-outpost',x:5300,y:5000,residents:[1],roads:[]};
+const growthTeam={name:'GROWTH TEST',seed:41,capital:{x:5000,y:5000},outposts:[{x:5300,y:5000}],settlements:[growthSettlement],civilians:[{id:1}],buildings:[{id:1,type:'house',x:5300,y:5000,progress:1,settlement:growthSettlement}],territory:[]};
+const youngBorder=sim.teamTerritoryPath(growthTeam),youngReach=Math.max(...youngBorder.map(p=>Math.hypot(p.x-growthTeam.capital.x,p.y-growthTeam.capital.y)));
+growthSettlement.residents=Array.from({length:18},(_,i)=>i+1);for(let i=0;i<4;i++)growthTeam.buildings.push({id:i+2,type:i%2?'farm':'house',x:5300+i*12,y:5000,progress:1,settlement:growthSettlement});
+const matureBorder=sim.teamTerritoryPath(growthTeam),matureReach=Math.max(...matureBorder.map(p=>Math.hypot(p.x-growthTeam.capital.x,p.y-growthTeam.capital.y)));
+assert(matureReach>youngReach+20,'settlement population and completed infrastructure did not increase territorial influence');
+const borderTeam={name:'BORDER TEST',seed:42,capital:{x:5000,y:5000},outposts:[{x:5300,y:5000}],settlements:[{id:'border-outpost',x:5300,y:5000,residents:[1],roads:[]}],civilians:[{id:1}],buildings:[],territory:[]};
+const borderNeighbor={name:'NEIGHBOR TEST',capital:{x:5600,y:5000},outposts:[],settlements:[],civilians:[],buildings:[],isRebel:false,territory:Array.from({length:240},(_,i)=>({x:5600+Math.cos(i/240*Math.PI*2)*200,y:5000+Math.sin(i/240*Math.PI*2)*200}))};
+sim.teams.push(borderTeam,borderNeighbor);borderTeam.territory=sim.clipTerritoryToNeighbors(borderTeam,sim.teamTerritoryPath(borderTeam));
+assert(sim.inside(borderTeam,5300,5000),'neighbor clipping removed the neutral settlement site from its own country');
+assert(!sim.inside(borderTeam,5500,5000)&&sim.inside(borderNeighbor,5500,5000),'expanding border overlapped neighboring ownership instead of stopping at the shared frontier');
+sim.teams.splice(sim.teams.indexOf(borderTeam),2);
 sim.riverPaths.splice(0,sim.riverPaths.length,...savedRivers);
