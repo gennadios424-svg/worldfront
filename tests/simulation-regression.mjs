@@ -9,7 +9,7 @@ assert(open>=0&&close>open,'index.html inline simulation script not found');
 let source=html.slice(open+8,close);
 const boot='init();resize();requestAnimationFrame(frame);';
 assert(source.includes(boot),'simulation boot sequence changed; update the test harness explicitly');
-source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,constructionRate,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution,updateWorldLife,makeRivers,riverPaths,nearRiver,findGroundRoute,riverBlocked,requestBridge,updateBridges,makeFishingSpots,nearestFishingSpot};');
+source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,constructionRate,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution,updateWorldLife,makeRivers,riverPaths,nearRiver,findGroundRoute,riverBlocked,requestBridge,inside,teamTerritoryPath,clipTerritoryToNeighbors,updateTerritoryInfluence,chooseFrontier,startExpansion,plantSettlementFlag,updateDiplomacy,updateBridges,makeFishingSpots,nearestFishingSpot};');
 
 let seed=424242;
 const seededMath={};
