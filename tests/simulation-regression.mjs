@@ -152,6 +152,8 @@ const savedRivers=sim.riverPaths.slice();
 sim.riverPaths.splice(0,sim.riverPaths.length,Array.from({length:101},(_,i)=>({x:1000+i*10,y:1000})));
 const riverFixture={buildings:[],nodes:[],bridges:[],resources:{wood:40,stone:20,food:0},civilians:[],capital:{x:1500,y:900},settlements:[]};
 assert.equal(sim.riverBlocked(riverFixture,1500,1000),true,'river did not block ordinary movement');
+const blockedSettler={id:699,x:1500,y:990,tx:1500,ty:1100,stage:'adult',role:'explorer',task:'expand',speed:20,speedFactor:1,efficiency:1,heading:Math.PI/2,decision:100,settlementTarget:{x:1500,y:1100},inventory:{wood:0,stone:0,food:0},needs:{rest:.2,social:.2},navGoal:{x:1500,y:1100},navTask:'expand',navRoute:[{x:1500,y:1100}],navRetryAt:9999};
+riverFixture.civilians=[blockedSettler];sim.moveCivilian(riverFixture,blockedSettler,.25,new Map());assert.equal(blockedSettler.tx,1500,'blocked settler lost its selected horizontal destination');assert.equal(blockedSettler.ty,1100,'blocked settler was redirected to a random nearby point');assert.equal(blockedSettler.navRoute.length,0,'blocked route was not invalidated for a safe retry');riverFixture.civilians=[];
 riverFixture.bridges=[{id:1,progress:.5,bankA:{x:1500,y:970},bankB:{x:1500,y:1030}}];
 assert.equal(sim.riverBlocked(riverFixture,1500,1000),true,'unfinished bridge incorrectly allowed river crossing');
 riverFixture.bridges[0].progress=1;
