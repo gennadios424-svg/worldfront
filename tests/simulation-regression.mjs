@@ -165,7 +165,7 @@ riverFixture.civilians=bridgeWorkers;
 const constructed=sim.requestBridge(riverFixture,1500,900,1500,1100);
 assert(constructed,'government did not start a bridge when resources and builders were available');
 assert.notEqual(bridgeWorkers[0].bridgeSide,bridgeWorkers[1].bridgeSide,'bridge builders were not assigned to opposite riverbanks');for(let i=0;i<100;i++){for(const v of bridgeWorkers)sim.moveCivilian(riverFixture,v,.25,new Map());sim.updateBridges(riverFixture,.25)}
-assert(constructed.progress>0,'bridge builders could not reach their assigned riverbanks');sim.updateBridges(riverFixture,1000);
+if(constructed.progress<=0)console.log('BRIDGE DEBUG',JSON.stringify({progress:constructed.progress,banks:[constructed.bankA,constructed.bankB],workers:bridgeWorkers.map(v=>({id:v.id,x:v.x,y:v.y,tx:v.tx,ty:v.ty,side:v.bridgeSide,task:v.task,navTask:v.navTask,navGoal:v.navGoal,route:v.navRoute?.length||0,retry:v.navRetryAt,river:sim.riverBlocked(riverFixture,v.x,v.y),land:sim.landAt(v.x,v.y)}))}));assert(constructed.progress>0,'bridge builders could not reach their assigned riverbanks');sim.updateBridges(riverFixture,1000);
 assert.equal(constructed.progress,1,'bridge did not progress to completion with builders at both banks');
 assert.equal(sim.riverBlocked(riverFixture,1500,1000),false,'completed constructed bridge did not unlock crossing');
 const tradingSource={id:61,type:'storage',x:1500,y:900,radius:17,progress:1,inventory:{wood:100,stone:0,food:0}},tradingDestination={id:62,type:'storage',x:1500,y:1100,radius:17,progress:1,inventory:{wood:0,stone:0,food:0}};
