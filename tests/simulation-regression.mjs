@@ -9,7 +9,7 @@ assert(open>=0&&close>open,'index.html inline simulation script not found');
 let source=html.slice(open+8,close);
 const boot='init();resize();requestAnimationFrame(frame);';
 assert(source.includes(boot),'simulation boot sequence changed; update the test harness explicitly');
-source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,constructionRate,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution,updateWorldLife,makeRivers,riverPaths,nearRiver,findGroundRoute,riverBlocked,requestBridge,inside,teamTerritoryPath,clipTerritoryToNeighbors,updateTerritoryInfluence,chooseFrontier,startExpansion,plantSettlementFlag,updateDiplomacy,updateBridges,makeFishingSpots,nearestFishingSpot};');
+source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,constructionRate,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution,updateWorldLife,makeRivers,riverPaths,nearRiver,findGroundRoute,riverBlocked,requestBridge,inside,teamTerritoryPath,clipTerritoryToNeighbors,updateTerritoryInfluence,chooseFrontier,startExpansion,plantSettlementFlag,updateDiplomacy,territoriesTouch,captureSettlement,updateBridges,makeFishingSpots,nearestFishingSpot};');
 
 let seed=424242;
 const seededMath={};
@@ -117,7 +117,7 @@ sim.teams.push(warA,warB);
 sim.updateMilitary(warA,1);
 assert(warA.civilians[0].task==='march'&&warB.civilians[0].health<100,'war did not produce organized movement and combat');
 for(let i=0;i<340;i++)sim.updateMilitary(warA,1);
-assert.equal(warB.settlements[0].occupiedBy,'WAR A','army failed to capture and hold enemy territory');
+assert.equal(warB.settlements[0].occupiedBy,'WAR A','army failed to capture and hold enemy territory');assert.equal(warB.settlements[0].owner,'WAR A','captured settlement did not transfer its ownership');assert(warB.lostTerritoryZones?.some(z=>z.settlementId==='captured-town'),'former owner did not lose the captured territorial zone');assert(warA.outposts?.some(p=>p.capturedSettlementId==='captured-town'),'victorious nation did not gain a territorial outpost at the captured settlement');
 const border=sim.teamTerritoryPath(warA),radii=border.map(p=>Math.hypot(p.x-warA.capital.x,p.y-warA.capital.y));
 assert(Math.max(...radii)-Math.min(...radii)>18,'territory border lacks natural irregularity');
 
