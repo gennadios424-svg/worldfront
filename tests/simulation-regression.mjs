@@ -160,7 +160,7 @@ riverFixture.bridges=[];
 const riverRoute=sim.findGroundRoute(riverFixture,1500,900,1500,1100);
 assert(riverRoute&&riverRoute.length>1,'pathfinder could not find a safe route around an uncrossable river');
 assert(riverRoute.every(p=>!sim.riverBlocked(riverFixture,p.x,p.y)),'pathfinder routed a unit through a river');
-const bridgeWorkers=[{id:700,x:1490,y:950,stage:'adult',role:'civilian',task:'wander',speed:25,speedFactor:1,efficiency:1,decision:0,needs:{rest:.2,social:.2},inventory:{wood:0,stone:0,food:0}},{id:701,x:1510,y:1050,stage:'adult',role:'civilian',task:'wander',inventory:{wood:0,stone:0,food:0}}];
+const bridgeWorkers=[{id:700,x:1490,y:950,stage:'adult',role:'civilian',task:'wander',speed:25,speedFactor:1,efficiency:1,decision:0,needs:{rest:.2,social:.2},inventory:{wood:0,stone:0,food:0}},{id:701,x:1510,y:1050,stage:'adult',role:'civilian',task:'wander',speed:25,speedFactor:1,efficiency:1,decision:0,needs:{rest:.2,social:.2},inventory:{wood:0,stone:0,food:0}}];
 riverFixture.civilians=bridgeWorkers;
 const constructed=sim.requestBridge(riverFixture,1500,900,1500,1100);
 assert(constructed,'government did not start a bridge when resources and builders were available');
