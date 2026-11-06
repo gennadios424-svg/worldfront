@@ -149,7 +149,7 @@ assert(report.every(r=>sim.teams.find(t=>t.name===r.nation)?.expansionAI),'a cou
  
 // Natural navigation, impassable rivers, bridge access, fishing and military/civilian balance.
 const savedRivers=sim.riverPaths.slice();
-sim.riverPaths.splice(0,sim.riverPaths.length,{x:1000,y:1000},{x:2000,y:1000});
+sim.riverPaths.splice(0,sim.riverPaths.length,[{x:1000,y:1000},{x:2000,y:1000}]);
 const riverFixture={buildings:[],nodes:[],bridges:[],resources:{wood:40,stone:20,food:0},civilians:[],capital:{x:1500,y:900},settlements:[]};
 assert.equal(sim.riverBlocked(riverFixture,1500,1000),true,'river did not block ordinary movement');
 riverFixture.bridges=[{id:1,progress:.5,bankA:{x:1500,y:970},bankB:{x:1500,y:1030}}];
