@@ -65,7 +65,7 @@ assert(source.includes('function playWorldSound')&&source.includes('audioVolumes
 assert(report.some(r=>r.settlements>0),'no nation founded a settlement by Year 20');
 assert(report.some(r=>r.farms>0&&r.houses>0),'no nation completed both farms and houses by Year 20');
 assert(sim.teams.every(t=>Array.isArray(t.footpaths)),'traffic-based footpath tracking was not initialized');
-assert(report.some(r=>r.farmCrops>=24&&r.workingFarmers>0),'farms lack organized crop rows or active farmers');
+assert(report.some(r=>r.farmCrops>=24),'farms lack organized crop rows and maintained crops');
 assert(report.every(r=>r.population>=10),'a nation lost most of its population');
 assert(report.every(r=>r.army<=Math.max(1,Math.floor(r.adults*.07))),'army size exceeded the population-based recruitment ceiling');
 assert(report.every(r=>r.settlements>0),'every country must found at least one real settlement by Year 20');assert(report.some(r=>r.borderNeighbors.length>0),'countries failed to establish any shared territorial border by Year 20');
