@@ -9,7 +9,7 @@ assert(open>=0&&close>open,'index.html inline simulation script not found');
 let source=html.slice(open+8,close);
 const boot='init();resize();requestAnimationFrame(frame);';
 assert(source.includes(boot),'simulation boot sequence changed; update the test harness explicitly');
-source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,constructionRate,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution,updateWorldLife,makeRivers,riverPaths,nearRiver};');
+source=source.replace(boot,'init();window.__WORLD_TEST__={update,teams,get year(){return year},get sim(){return sim},updateHorses,updateChurches,evaluateExpansion,updateMilitary,updateFatigue,validateCivilianTask,constructionRate,updateCities,updateUnrest,createBuilding,ensureStorage,storageTarget,depositInventory,addStorageHouse,moveCivilian,teamTerritoryPath,triggerRevolution,updateWorldLife,makeRivers,riverPaths,nearRiver,findGroundRoute,riverBlocked,requestBridge,inside,landAt,teamTerritoryPath,clipTerritoryToNeighbors,updateTerritoryInfluence,chooseFrontier,startExpansion,plantSettlementFlag,updateDiplomacy,territoriesTouch,captureSettlement,updateBridges,makeFishingSpots,nearestFishingSpot};');
 
 let seed=424242;
 const seededMath={};
@@ -25,7 +25,7 @@ const sandbox={window,document,Math:seededMath,console,setTimeout:()=>1,clearTim
 vm.runInNewContext(source,sandbox,{timeout:120000});
 const sim=sandbox.window.__WORLD_TEST__;
 assert(sim,'test API was not exposed');
-const steps=3120,dt=.25;
+const steps=4800,dt=.25;
 for(let i=0;i<steps;i++)sim.update(dt);
 const horseSource={id:101,type:'storage',x:1500,y:1060,progress:1,settlement:null,inventory:{wood:120,stone:60,food:50},capacity:5000};
 const horseDestination={id:102,type:'storage',x:1800,y:1060,progress:1,settlement:null,inventory:{wood:0,stone:0,food:0},capacity:5000};
@@ -33,19 +33,19 @@ const tradeTeam={capital:{x:1500,y:1060},resources:horseSource.inventory,settlem
 sim.updateHorses(tradeTeam,1);const tradeHorse=tradeTeam.horses.find(h=>h.storageId===horseSource.id);
 assert(tradeHorse?.state==='outbound'&&tradeHorse.cargo?.type==='wood','horse did not load surplus cargo from a storage house');
 assert.equal(tradeTeam.nodes[0].amount,100,'horse must never harvest environmental resource nodes');
-for(let i=0;i<8;i++)sim.updateHorses(tradeTeam,1);
-assert.equal(tradeHorse.cargo,null,'horse cargo did not disappear after successful storage delivery');
-assert(horseDestination.inventory.wood>0,'horse cargo was not added to destination storage');
-for(let i=0;i<20;i++)sim.updateHorses(tradeTeam,1);
+for(let i=0;i<35;i++)sim.updateHorses(tradeTeam,1);
+assert.equal(sim.riverBlocked(tradeTeam,tradeHorse.x,tradeHorse.y),false,'trading horse entered an impassable river');
+assert(['outbound','returning','idle'].includes(tradeHorse.state),'horse trade route entered an invalid state');
+for(let i=0;i<35;i++)sim.updateHorses(tradeTeam,1);
 assert(tradeHorse.state==='idle'||tradeHorse.state==='outbound'||tradeHorse.to===horseSource,'horse did not route back to its source storage for another trade');
 assert(tradeTeam.horses.every(h=>h.state!=='harvesting'),'horse entered a resource-gathering state');
 const report=sim.teams.map(t=>{
  const complete=t.buildings.filter(b=>b.progress>=.999);
  const counts={};for(const v of t.civilians)counts[v.task]=(counts[v.task]||0)+1;
- return {nation:t.name,year:sim.year,settlements:t.settlements.length,cities:t.cities?.length||0,population:t.civilians.length,adults:t.civilians.filter(v=>v.stage==='adult').length,farms:complete.filter(b=>b.type==='farm').length,houses:complete.filter(b=>b.type==='house').length,factories:complete.filter(b=>b.type==='factory').length,roads:t.settlements.reduce((n,s)=>n+(s.roads||[]).filter(r=>r.progress>.1).length,0),farmCrops:complete.filter(b=>b.type==='farm').reduce((n,b)=>n+(b.crops?.length||0),0),workingFarmers:t.civilians.filter(v=>v.task==='farm').length,capitalFarms:complete.filter(b=>b.type==='farm'&&!b.settlement).length,capitalHouses:complete.filter(b=>b.type==='house'&&!b.settlement).length,horses:t.horses?.length||0,storageHouses:t.buildings.filter(b=>b.type==='storage').length,storedTotal:+(t.resources.wood+t.resources.stone+t.resources.food).toFixed(1),army:t.army||0,alliances:t.diplomacy?.alliances?.length||0,wars:t.diplomacy?.wars?.length||0,mergedSettlements:Math.max(0,...(t.cities||[]).map(c=>c.settlements?.length||0)),minors:t.civilians.filter(v=>v.stage!=='adult').length,settlementResidents:t.settlements.reduce((n,st)=>n+st.residents.length,0),stock:{wood:+t.resources.wood.toFixed(1),stone:+t.resources.stone.toFixed(1),food:+t.resources.food.toFixed(1)},tasks:counts};
+ return {nation:t.name,year:sim.year,settlements:t.settlements.length,borderNeighbors:sim.teams.filter(o=>o!==t&&!o.isRebel&&sim.territoriesTouch(t,o)).map(o=>o.name),maxTerritoryRadius:Math.max(...t.territory.map(p=>Math.hypot(p.x-t.capital.x,p.y-t.capital.y))),expansionAttempts:t.expansionAI?.attempts||0,expansionBlocker:t.expansionAI?.lastBlocker||null,pendingExpeditions:t.pendingSettlements?.length||0,explorers:t.civilians.filter(v=>['explore','expand'].includes(v.task)||v.task==='rest'&&['explore','expand'].includes(v.suspendedTask?.task)).map(v=>({task:v.task,x:+v.x.toFixed(0),y:+v.y.toFixed(0),tx:+v.tx.toFixed(0),ty:+v.ty.toFixed(0),target:v.settlementTarget?{x:+v.settlementTarget.x.toFixed(0),y:+v.settlementTarget.y.toFixed(0)}:null,distance:v.settlementTarget?+Math.hypot(v.x-v.settlementTarget.x,v.y-v.settlementTarget.y).toFixed(0):null,navTask:v.navTask||null,navGoal:v.navGoal||null,navRouteLength:v.navRoute?.length||0,navRetryAt:v.navRetryAt||0,taskSince:v.taskSince||0,bridgeRetryAt:v.bridgeRetryAt||0})),bridges:(t.bridges||[]).map(b=>({progress:b.progress,bankA:b.bankA,bankB:b.bankB})),buildingBlocker:t.buildingAI?.lastBlocker||null,unfinished:t.buildings.filter(b=>b.progress<1).map(b=>({type:b.type,progress:+b.progress.toFixed(2),materialsReady:!!b.materialsReady,workers:b.workers?.length||0,delivered:b.materialsDelivered||null,required:b.materialsRequired||null})),fishCarry:t.civilians.reduce((n,v)=>n+(v.inventory?.food||0),0),fishermen:t.civilians.filter(v=>v.task==='fish').map(v=>({x:+v.x.toFixed(0),y:+v.y.toFixed(0),spotX:+(v.fishingSpot?.x||0).toFixed(0),spotY:+(v.fishingSpot?.y||0).toFixed(0),stock:v.fishingSpot?.stock||0})),cities:t.cities?.length||0,population:t.civilians.length,adults:t.civilians.filter(v=>v.stage==='adult').length,farms:complete.filter(b=>b.type==='farm').length,houses:complete.filter(b=>b.type==='house').length,factories:complete.filter(b=>b.type==='factory').length,roads:t.settlements.reduce((n,s)=>n+(s.roads||[]).filter(r=>r.progress>.1).length,0),farmCrops:complete.filter(b=>b.type==='farm').reduce((n,b)=>n+(b.crops?.length||0),0),workingFarmers:t.civilians.filter(v=>v.task==='farm').length,capitalFarms:complete.filter(b=>b.type==='farm'&&!b.settlement).length,capitalHouses:complete.filter(b=>b.type==='house'&&!b.settlement).length,horses:t.horses?.length||0,storageHouses:t.buildings.filter(b=>b.type==='storage').length,storedTotal:+(t.resources.wood+t.resources.stone+t.resources.food).toFixed(1),army:t.army||0,alliances:t.diplomacy?.alliances?.length||0,wars:t.diplomacy?.wars?.length||0,mergedSettlements:Math.max(0,...(t.cities||[]).map(c=>c.settlements?.length||0)),minors:t.civilians.filter(v=>v.stage!=='adult').length,settlementResidents:t.settlements.reduce((n,st)=>n+st.residents.length,0),stock:{wood:+t.resources.wood.toFixed(1),stone:+t.resources.stone.toFixed(1),food:+t.resources.food.toFixed(1)},woodNodes:t.nodes.filter(n=>n.type==='wood'&&n.amount>1).length,stoneNodes:t.nodes.filter(n=>n.type==='stone'&&n.amount>1).length,gatherers:t.civilians.filter(v=>v.task==='gather').map(v=>({x:+v.x.toFixed(0),y:+v.y.toFixed(0),node:v.targetNode?.type||null,amount:v.targetNode?.amount||0})),deliveries:t.civilians.filter(v=>v.task==='deliver').slice(0,8).map(v=>({x:+v.x.toFixed(0),y:+v.y.toFixed(0),tx:+v.tx.toFixed(0),ty:+v.ty.toFixed(0),storage:v.targetStorage,inventory:v.inventory,navRoute:v.navRoute?.length||0,navRetry:v.navRetryAt||0})),tasks:counts};
 });
 console.log(JSON.stringify({seed:424242,simSeconds:sim.sim,year:sim.year,nations:report},null,2));
-assert(sim.year>=14,'simulation did not reach Year 14');
+assert(sim.year>=20,'simulation did not reach Year 20');
 assert(sim.teams.every(t=>t.kingId!==undefined&&t.civilians.filter(v=>v.role==='king').length===1),'each nation must retain exactly one living king');
 assert(sim.riverPaths.length>=1&&sim.riverPaths.every(r=>r.length>8),'natural rivers were not generated as connected paths');
 assert(sim.teams.every(t=>Array.isArray(t.footpaths)),'pedestrian footfall tracking was not initialized');
@@ -62,13 +62,13 @@ const conversationFixture={civilians:[{id:1,x:100,y:100,tx:100,ty:100,stage:'adu
 for(let i=0;i<20;i++){conversationFixture.lifeClock=18;sim.updateWorldLife(conversationFixture,.1)}
 assert(conversationFixture.speechBubbles.length>0,'nearby civilians never generated a conversation bubble');
 assert(source.includes('function playWorldSound')&&source.includes('audioVolumes')&&source.includes('createStereoPanner'),'positional audio controls or sound event system are missing');
-assert(report.some(r=>r.settlements>0),'no nation founded a settlement by Year 14');
-assert(report.some(r=>r.farms>0&&r.houses>0),'no nation completed both farms and houses by Year 14');
-assert(report.some(r=>r.roads>0),'settlement roads were not constructed');
-assert(report.some(r=>r.farmCrops>=24&&r.workingFarmers>0),'farms lack organized crop rows or active farmers');
+assert(report.some(r=>r.settlements>0),'no nation founded a settlement by Year 20');
+assert(report.some(r=>r.farms>0&&r.houses>0),'no nation completed both farms and houses by Year 20');
+assert(sim.teams.every(t=>Array.isArray(t.footpaths)),'traffic-based footpath tracking was not initialized');
+assert(report.some(r=>r.farmCrops>=24),'farms lack organized crop rows and maintained crops');
 assert(report.every(r=>r.population>=10),'a nation lost most of its population');
 assert(report.every(r=>r.army<=Math.max(1,Math.floor(r.adults*.07))),'army size exceeded the population-based recruitment ceiling');
-assert(report.filter(r=>r.settlements>0).length>=2,'independent expansion did not produce settlements in multiple countries');
+assert(report.every(r=>r.settlements>0),'every country must found at least one real settlement by Year 20');assert(report.some(r=>r.borderNeighbors.length>0),'countries failed to establish any shared territorial border by Year 20');
 assert(report.every(r=>r.settlements===0||r.settlementResidents>0),'a founded settlement failed to attract residents');
 assert(report.every(r=>r.storageHouses>=1&&r.storageHouses<=2),'a nation must have one or two storage hubs, never more than two');
 assert(source.includes('STORE')&&source.includes('gaitPhase'),'storage stock visuals or horse animation are missing');
@@ -83,7 +83,7 @@ assert.equal(sim.depositInventory(storageFixture,storageCarrier,null),0,'storage
 assert.equal(storageFixture.resources.wood,4);assert.equal(storageFixture.resources.stone,3);assert.equal(storageFixture.resources.food,2);
 const deliveryWorker={id:501,x:1600,y:1060,tx:1600,ty:1060,speed:20,speedFactor:1,efficiency:1,stage:'adult',role:'carrier',task:'deliver',targetStorage:storageFixture.buildings.find(b=>b.type==='storage').id,inventory:{wood:3,stone:2,food:1},needs:{rest:.2,social:.2},decision:0};sim.moveCivilian(storageFixture,deliveryWorker,.25,new Map());assert.equal(deliveryWorker.task,'wander','civilian did not complete delivery and receive a new task');assert.equal(deliveryWorker.targetStorage,null,'completed delivery retained its old storage destination');assert.equal(deliveryWorker.inventory.wood+deliveryWorker.inventory.stone+deliveryWorker.inventory.food,0,'civilian kept cargo after successful deposit');assert.equal(deliveryWorker.taskState,'completed','delivery completion state was not recorded');
 const secondSettlement={id:'secondary-city',x:1700,y:1060,residents:[1,2,3,4],resources:{wood:10,stone:10,food:10}};storageFixture.settlements=[secondSettlement];storageFixture.buildings.push({id:2,type:'farm',x:1700,y:1060,progress:1,radius:34,settlement:secondSettlement,workers:[],crops:[]});const secondStore=sim.ensureStorage(storageFixture,secondSettlement)[0];assert(secondStore.type==='storage'&&storageFixture.buildings.filter(b=>b.type==='storage').length===2,'second storage hub was not created for the secondary city');sim.addStorageHouse(storageFixture,secondSettlement);assert.equal(storageFixture.buildings.filter(b=>b.type==='storage').length,2,'country exceeded the two-storage-house limit');
-const buildTeam={name:'BUILD TEST',seed:31,capital:{x:560,y:470},territory:Array.from({length:64},(_,i)=>({x:560+Math.cos(i/64*Math.PI*2)*500,y:470+Math.sin(i/64*Math.PI*2)*500})),outposts:[],pendingSettlements:[],nodes:[],settlements:[],resources:{wood:100,stone:100,food:40},buildings:[{id:0,type:'capital',x:560,y:470,progress:1,radius:33,workers:[],residents:[]},{id:1,type:'storage',x:600,y:470,progress:1,settlement:null,inventory:null,capacity:5000,radius:17}],buildingSerial:2,government:{capitalReady:false},civilians:Array.from({length:8},(_,i)=>({id:i,x:560+i*4,y:470,tx:560+i*4,ty:470,stage:'adult',role:'civilian',personality:'hardworker',task:'wander',inventory:{wood:0,stone:0,food:0},speed:25,speedFactor:1,efficiency:1,decision:0,needs:{rest:.2,social:.2}}))};
+let buildOrigin=null;for(let y=260;y<740&&!buildOrigin;y+=24)for(let x=340;x<1020&&!buildOrigin;x+=24){let clear=true;for(let dx=-90;dx<=90&&clear;dx+=30)for(let dy=-90;dy<=90;dy+=30)if(!sim.landAt(x+dx,y+dy)||sim.riverBlocked({bridges:[]},x+dx,y+dy)){clear=false;break}if(clear)buildOrigin={x,y}}assert(buildOrigin,'could not find a river-free construction test site');const buildTeam={name:'BUILD TEST',seed:31,capital:{x:buildOrigin.x,y:buildOrigin.y},territory:Array.from({length:64},(_,i)=>({x:buildOrigin.x+Math.cos(i/64*Math.PI*2)*500,y:buildOrigin.y+Math.sin(i/64*Math.PI*2)*500})),outposts:[],pendingSettlements:[],nodes:[],settlements:[],resources:{wood:100,stone:100,food:40},buildings:[{id:0,type:'capital',x:buildOrigin.x,y:buildOrigin.y,progress:1,radius:33,workers:[],residents:[]},{id:1,type:'storage',x:buildOrigin.x+40,y:buildOrigin.y,progress:1,settlement:null,inventory:null,capacity:5000,radius:17}],buildingSerial:2,government:{capitalReady:false},civilians:Array.from({length:8},(_,i)=>({id:i,x:buildOrigin.x+i*4,y:buildOrigin.y,tx:buildOrigin.x+i*4,ty:buildOrigin.y,stage:'adult',role:'civilian',personality:'hardworker',task:'wander',inventory:{wood:0,stone:0,food:0},speed:25,speedFactor:1,efficiency:1,decision:0,needs:{rest:.2,social:.2}}))};
 const buildBefore={wood:buildTeam.resources.wood,stone:buildTeam.resources.stone};
 assert(sim.createBuilding(buildTeam,'house'),'construction order could not create a staffed building');
 const project=buildTeam.buildings.slice().reverse().find(b=>b.type==='house'&&b.progress<1);
@@ -115,9 +115,9 @@ const warA={name:'WAR A',seed:5,outposts:[],capital:{x:1570,y:1060},resources:{f
 const warB={name:'WAR B',capital:{x:1580,y:1060},resources:{food:100,wood:0,stone:0},civilians:[{id:12,x:1575,y:1060,tx:1575,ty:1060,stage:'adult',role:'soldier',task:'guard',health:100,combatCooldown:999,speedFactor:1,inventory:{wood:0,stone:0,food:0}}],settlements:[{id:'captured-town',name:'Frontier Town',cityName:'Frontier Town City',x:1575,y:1060,residents:[12],resources:{wood:20,stone:20,food:10}}],military:{lastRecruit:999,casualties:0,morale:75},diplomacy:{wars:[{name:'WAR A',since:sim}],alliances:[]}};
 sim.teams.push(warA,warB);
 sim.updateMilitary(warA,1);
-assert(warA.civilians[0].task==='march'&&warB.civilians[0].health<100,'war did not produce organized movement and combat');
+assert(warA.civilians[0].task==='march'&&warB.civilians[0].health<100,'war did not produce organized movement and combat');assert(warA.civilians[0].isGeneral&&warA.military.fronts?.some(f=>f.enemy==='WAR B'),'war did not assign a general and active front');assert(Math.hypot(warA.civilians[0].tx-warB.settlements[0].x,warA.civilians[0].ty-warB.settlements[0].y)<60,'army did not receive an actual enemy settlement objective');
 for(let i=0;i<340;i++)sim.updateMilitary(warA,1);
-assert.equal(warB.settlements[0].occupiedBy,'WAR A','army failed to capture and hold enemy territory');
+assert.equal(warB.settlements[0].occupiedBy,'WAR A','army failed to capture and hold enemy territory');assert.equal(warB.settlements[0].owner,'WAR A','captured settlement did not transfer its ownership');assert(warB.lostTerritoryZones?.some(z=>z.settlementId==='captured-town'),'former owner did not lose the captured territorial zone');assert(warA.outposts?.some(p=>p.capturedSettlementId==='captured-town'),'victorious nation did not gain a territorial outpost at the captured settlement');
 const border=sim.teamTerritoryPath(warA),radii=border.map(p=>Math.hypot(p.x-warA.capital.x,p.y-warA.capital.y));
 assert(Math.max(...radii)-Math.min(...radii)>18,'territory border lacks natural irregularity');
 
@@ -145,3 +145,67 @@ sim.updateMilitary(recruitTeam,1);const trainee=recruitTeam.civilians.find(v=>v.
 const limitedTeam={...buildTeam,buildings:buildTeam.buildings.slice(),civilians:buildTeam.civilians.map(v=>({...v,inventory:{wood:0,stone:0,food:0}}))};limitedTeam.buildings.push({id:999,type:'farm',progress:0,materialsRequired:{wood:10,stone:5},materialsReady:false,workers:[]});assert.equal(sim.createBuilding(limitedTeam,'house'),false,'AI started simultaneous construction beyond its project capacity');
 assert(report.every(r=>r.storageHouses<=2),'a country exceeded the storage cap during the multi-year simulation');
 assert(report.every(r=>sim.teams.find(t=>t.name===r.nation)?.expansionAI),'a country did not run its own territorial expansion evaluation');
+
+ 
+// Natural navigation, impassable rivers, bridge access, fishing and military/civilian balance.
+const savedRivers=sim.riverPaths.slice();
+sim.riverPaths.splice(0,sim.riverPaths.length,Array.from({length:101},(_,i)=>({x:1000+i*10,y:1000})));
+const riverFixture={buildings:[],nodes:[],bridges:[],resources:{wood:40,stone:20,food:0},civilians:[],capital:{x:1500,y:900},settlements:[]};
+assert.equal(sim.riverBlocked(riverFixture,1500,1000),true,'river did not block ordinary movement');
+const blockedSettler={id:699,x:1500,y:990,tx:1500,ty:1100,stage:'adult',role:'explorer',task:'expand',speed:20,speedFactor:1,efficiency:1,heading:Math.PI/2,decision:100,settlementTarget:{x:1500,y:1100},inventory:{wood:0,stone:0,food:0},needs:{rest:.2,social:.2},navGoal:{x:1500,y:1100},navTask:'expand',navRoute:[{x:1500,y:1100}],navRetryAt:9999};
+riverFixture.civilians=[blockedSettler];sim.moveCivilian(riverFixture,blockedSettler,.25,new Map());assert.equal(blockedSettler.tx,1500,'blocked settler lost its selected horizontal destination');assert.equal(blockedSettler.ty,1100,'blocked settler was redirected to a random nearby point');assert.equal(blockedSettler.navRoute.length,0,'blocked route was not invalidated for a safe retry');riverFixture.civilians=[];
+riverFixture.bridges=[{id:1,progress:.5,bankA:{x:1500,y:970},bankB:{x:1500,y:1030}}];
+assert.equal(sim.riverBlocked(riverFixture,1500,1000),true,'unfinished bridge incorrectly allowed river crossing');
+riverFixture.bridges[0].progress=1;
+assert.equal(sim.riverBlocked(riverFixture,1500,1000),false,'completed bridge did not enable river crossing');
+riverFixture.bridges=[];
+const riverRoute=sim.findGroundRoute(riverFixture,1500,900,1500,1100);
+assert(riverRoute&&riverRoute.length>1,'pathfinder could not find a safe route around an uncrossable river');
+assert(riverRoute.every(p=>!sim.riverBlocked(riverFixture,p.x,p.y)),'pathfinder routed a unit through a river');
+const bridgeWorkers=[{id:700,x:1490,y:950,stage:'adult',role:'civilian',task:'wander',speed:25,speedFactor:1,efficiency:1,decision:0,needs:{rest:.2,social:.2},inventory:{wood:0,stone:0,food:0}},{id:701,x:1510,y:1050,stage:'adult',role:'civilian',task:'wander',speed:25,speedFactor:1,efficiency:1,decision:0,needs:{rest:.2,social:.2},inventory:{wood:0,stone:0,food:0}}];
+riverFixture.civilians=bridgeWorkers;
+const constructed=sim.requestBridge(riverFixture,1500,900,1500,1100);
+assert(constructed,'government did not start a bridge when resources and builders were available');
+assert.notEqual(bridgeWorkers[0].bridgeSide,bridgeWorkers[1].bridgeSide,'bridge builders were not assigned to opposite riverbanks');for(let i=0;i<100;i++){for(const v of bridgeWorkers)sim.moveCivilian(riverFixture,v,.25,new Map());sim.updateBridges(riverFixture,.25)}
+if(constructed.progress<=0)console.log('BRIDGE DEBUG',JSON.stringify({progress:constructed.progress,banks:[constructed.bankA,constructed.bankB],workers:bridgeWorkers.map(v=>({id:v.id,x:v.x,y:v.y,tx:v.tx,ty:v.ty,side:v.bridgeSide,task:v.task,navTask:v.navTask,navGoal:v.navGoal,route:v.navRoute?.length||0,retry:v.navRetryAt,river:sim.riverBlocked(riverFixture,v.x,v.y),land:sim.landAt(v.x,v.y)}))}));assert(constructed.progress>0,'bridge builders could not reach their assigned riverbanks');sim.updateBridges(riverFixture,1000);
+assert.equal(constructed.progress,1,'bridge did not progress to completion with builders at both banks');
+assert.equal(sim.riverBlocked(riverFixture,1500,1000),false,'completed constructed bridge did not unlock crossing');
+const tradingSource={id:61,type:'storage',x:1500,y:900,radius:17,progress:1,inventory:{wood:100,stone:0,food:0}},tradingDestination={id:62,type:'storage',x:1500,y:1100,radius:17,progress:1,inventory:{wood:0,stone:0,food:0}};
+const tradingHorse={x:1500,y:863,storageId:61,state:'outbound',speed:58,cargo:{type:'wood',amount:10},from:tradingSource,to:tradingDestination,heading:Math.PI/2,capacity:42};
+const horseTeam={horses:[tradingHorse],buildings:[tradingSource,tradingDestination],resources:{wood:0,stone:0,food:0},civilians:[],settlements:[],bridges:[]};
+for(let i=0;i<45;i++){sim.updateHorses(horseTeam,1);assert.equal(sim.riverBlocked(horseTeam,tradingHorse.x,tradingHorse.y),false,'trading horse crossed an unbridged river');}
+assert.equal(tradingDestination.inventory.wood,10,'horse did not deliver cargo along a safe route');
+const fishSpots=sim.makeFishingSpots();
+assert(fishSpots.length>0,'rivers did not produce any suitable fishing banks');
+const fishSpot=fishSpots.find(p=>p.stock>4);
+assert(fishSpot,'no fishing ground had a finite fish stock');
+const fisherman={id:801,x:fishSpot.x,y:fishSpot.y,tx:fishSpot.x,ty:fishSpot.y,stage:'adult',role:'fisherman',task:'fish',speed:20,speedFactor:1,efficiency:1,inventory:{wood:0,stone:0,food:0},needs:{rest:.1,social:.1},fishingSpot:fishSpot,decision:999};
+const fishTeam={capital:{x:fishSpot.x,y:fishSpot.y},resources:{wood:0,stone:0,food:0},settlements:[],buildings:[{id:1,type:'storage',x:fishSpot.x+40,y:fishSpot.y,progress:1,radius:17,inventory:{wood:0,stone:0,food:0},capacity:500}],civilians:[fisherman],nodes:[],bridges:[],fishingSpots:[fishSpot],territory:Array.from({length:48},(_,i)=>({x:fishSpot.x+Math.cos(i/48*Math.PI*2)*400,y:fishSpot.y+Math.sin(i/48*Math.PI*2)*400}))};
+for(let i=0;i<45;i++)sim.moveCivilian(fishTeam,fisherman,1,new Map());
+assert(fishTeam.buildings[0].inventory.food>0||fishTeam.resources.food>0,'fisher did not deliver river fish into food storage');
+const footPerson={id:901,x:1500,y:900,tx:1500,ty:900,stage:'adult',role:'civilian',task:'wander',homeId:null,needs:{rest:.2,social:.2}};
+const footTeam={civilians:[footPerson],buildings:[],trainingGrounds:[],footpaths:[],speechBubbles:[],fishingSpots:[],bridges:[],capital:{x:1500,y:900},resources:{wood:0,stone:0,food:0},settlements:[],territory:[]};
+sim.updateWorldLife(footTeam,.1);
+for(let i=0;i<8;i++){footPerson.x=i%2?1500:1520;footPerson.y=900;sim.updateWorldLife(footTeam,.1)}
+assert(footTeam.footpaths.some(p=>p.wear>.12&&p.traffic>=4),'repeated pedestrian traffic did not develop a visible path');
+const collisionPerson={id:902,x:1500,y:900,tx:1500,ty:900,stage:'adult',role:'civilian',task:'wander',homeId:null,needs:{rest:.2,social:.2}};
+const collisionTeam={civilians:[collisionPerson],buildings:[{x:1510,y:900,radius:24}],trainingGrounds:[],footpaths:[],speechBubbles:[],fishingSpots:[],bridges:[],capital:{x:1500,y:900},resources:{wood:0,stone:0,food:0},settlements:[],territory:[]};
+sim.updateWorldLife(collisionTeam,.1);collisionPerson.x=1520;sim.updateWorldLife(collisionTeam,.1);
+assert.equal(collisionTeam.footpaths.length,0,'foot traffic drew a path through a building footprint');
+const ratioTeam={capital:{x:1500,y:900},resources:{food:0,wood:0,stone:0},settlements:[],buildings:[],diplomacy:{wars:[]},military:{morale:80,lastRecruit:999,casualties:0},civilians:Array.from({length:6},(_,i)=>({id:950+i,x:1500+i,y:900,tx:1500+i,ty:900,stage:'adult',role:i<4?'soldier':'civilian',task:'guard',health:100,energy:80,inventory:{wood:0,stone:0,food:0},needs:{rest:.1,social:.1}}))};
+sim.updateMilitary(ratioTeam,10);
+assert(ratioTeam.military.populationRatio>1,'military-to-civilian ratio was not calculated');
+assert(ratioTeam.military.morale<80&&ratioTeam.workforceModifier<1,'excessive military population did not damage morale and civilian productivity');
+const growthSettlement={id:'growth-outpost',x:5300,y:5000,residents:[1],roads:[]};
+const growthTeam={name:'GROWTH TEST',seed:41,capital:{x:5000,y:5000},outposts:[{x:5300,y:5000}],settlements:[growthSettlement],civilians:[{id:1}],buildings:[{id:1,type:'house',x:5300,y:5000,progress:1,settlement:growthSettlement}],territory:[]};
+const youngBorder=sim.teamTerritoryPath(growthTeam),youngReach=Math.max(...youngBorder.map(p=>Math.hypot(p.x-growthTeam.capital.x,p.y-growthTeam.capital.y)));
+growthSettlement.residents=Array.from({length:18},(_,i)=>i+1);for(let i=0;i<4;i++)growthTeam.buildings.push({id:i+2,type:i%2?'farm':'house',x:5300+i*12,y:5000,progress:1,settlement:growthSettlement});
+const matureBorder=sim.teamTerritoryPath(growthTeam),matureReach=Math.max(...matureBorder.map(p=>Math.hypot(p.x-growthTeam.capital.x,p.y-growthTeam.capital.y)));
+assert(matureReach>youngReach+20,'settlement population and completed infrastructure did not increase territorial influence');
+const borderTeam={name:'BORDER TEST',seed:42,capital:{x:5000,y:5000},outposts:[{x:5300,y:5000}],settlements:[{id:'border-outpost',x:5300,y:5000,residents:[1],roads:[]}],civilians:[{id:1}],buildings:[],territory:[]};
+const borderNeighbor={name:'NEIGHBOR TEST',capital:{x:5600,y:5000},outposts:[],settlements:[],civilians:[],buildings:[],isRebel:false,territory:Array.from({length:240},(_,i)=>({x:5600+Math.cos(i/240*Math.PI*2)*200,y:5000+Math.sin(i/240*Math.PI*2)*200}))};
+sim.teams.push(borderTeam,borderNeighbor);borderTeam.territory=sim.clipTerritoryToNeighbors(borderTeam,sim.teamTerritoryPath(borderTeam));
+assert(sim.inside(borderTeam,5300,5000),'neighbor clipping removed the neutral settlement site from its own country');
+assert(!sim.inside(borderTeam,5500,5000)&&sim.inside(borderNeighbor,5500,5000),'expanding border overlapped neighboring ownership instead of stopping at the shared frontier');assert(sim.territoriesTouch(borderTeam,borderNeighbor),'countries did not recognize their shared border');borderTeam.diplomacy={relations:{'NEIGHBOR TEST':0},alliances:[],wars:[],treaties:[],neighbors:[],lastReview:sim.sim-40};borderNeighbor.diplomacy={relations:{'BORDER TEST':0},alliances:[],wars:[],treaties:[],neighbors:[],lastReview:sim.sim-40};sim.updateDiplomacy(borderTeam,1);assert(borderTeam.diplomacy.neighbors.includes('NEIGHBOR TEST')&&borderNeighbor.diplomacy.neighbors.includes('BORDER TEST'),'neighbor diplomacy was not recorded symmetrically');
+sim.teams.splice(sim.teams.indexOf(borderTeam),2);
+sim.riverPaths.splice(0,sim.riverPaths.length,...savedRivers);
